@@ -1,78 +1,63 @@
 # CLAUDE.md
 
-Full-stack CMS: .NET 9 Web API (Dapper) + Angular 20 (standalone, PrimeNG 20), over an existing SQL Server database.
+Full-stack CMS: .NET 9 Web API (Dapper) + Angular 20 (standalone, PrimeNG 20), over an existing SQL Server database. UI text is Traditional Chinese.
+
+## Reference docs (read when relevant)
+
+| File | Read when |
+|---|---|
+| `docs/claude/backend.md` | Adding/changing API code or backend tests: key types, FK/n-n/delete-guard patterns, column handling, validation, fakes |
+| `docs/claude/frontend.md` | Adding/changing UI or Angular tests: list/drawer/form patterns, child-list links, sidebar, spec conventions |
+| `docs/claude/features.md` | Changing an existing feature or one FK-related to it: per-table decisions, live-data facts, deferred work |
+| `spec/code-gen.convention.md` | Scaffolding a new feature (with the two above) |
 
 ## Layout
 
 | Path | What |
 |---|---|
 | `database/*.sql` | Schema of the existing `CMS` database (source of truth for models) |
-| `spec/code-gen.convention.md` | **Coding conventions — follow for every new feature** |
-| `spec/feature-spec.template.md`, `spec/sample*.spec.md` | Feature spec template and examples |
-| `spec/ui-sample-*.png` | UI style reference only (not actual content) |
+| `spec/feature-spec.template.md`, `spec/sample*.spec.md` | Spec template and examples. `sample1.spec.md` is aspirational (mentions ClassSection, `spec/dapper.md`, `AuditHelper`, copy/QR/PDF, none of which exist): use it for format only |
+| `spec/{sub-system}/{Table}.md` | Per-feature specs from `/crud` (re-running `/crud` reuses an existing spec) |
+| `spec/ui-sample-*.png` | UI style reference only |
 | `src/CMS.sln`, `src/global.json` | Solution; `global.json` pins the .NET 9 SDK (machine default is 10) |
-| `src/CMS.API` | Web API |
-| `src/CMS.API.Tests` | xUnit tests |
-| `src/CMS.NG` | Angular app |
+| `src/CMS.API`, `src/CMS.API.Tests`, `src/CMS.NG` | Web API, xUnit tests, Angular app |
 
 ## Commands
 
 ```sh
-# Backend (http://localhost:5000, Swagger at /swagger)
-cd src && dotnet run --project CMS.API
+cd src && dotnet run --project CMS.API      # http://localhost:5000, Swagger at /swagger
 cd src && dotnet test
-
-# Frontend (http://localhost:4200)
-cd src/CMS.NG && npm start
-cd src/CMS.NG && npm run test:ci     # headless Karma, single run (npm test = watch)
-cd src/CMS.NG && npx ng build        # production build (checks budgets)
+cd src/CMS.NG && npm start                  # http://localhost:4200
+cd src/CMS.NG && npm run test:ci            # headless Karma, single run
+cd src/CMS.NG && npx ng build               # production build (checks budgets)
 ```
 
-Database: `Server=.\SQLEXPRESS;Database=CMS;Trusted_Connection=True;...` (in `CMS.API/appsettings.json`, key `ConnectionStrings:CMS`). Query directly with `sqlcmd -S .\SQLEXPRESS -E -C -d CMS -Q "..."`.
+DB: `Server=.\SQLEXPRESS;Database=CMS;Trusted_Connection=True` (`CMS.API/appsettings.json`, `ConnectionStrings:CMS`). Query: `sqlcmd -S '.\SQLEXPRESS' -E -C -d CMS -Q "..."`.
 
-## Backend (`src/CMS.API`)
+## Core conventions
 
-- `Program.cs`: Swagger (Swashbuckle 7.2.0, always on), CORS policy allowing any loopback origin, Dapper `DateOnly`/`TimeOnly` type handlers, DI registrations. Ends with `public partial class Program {}` for `WebApplicationFactory`.
-- `Data/` — `IDbConnectionFactory` (`OpenAsync()`), type handlers.
-- `Models/` — `{Table}.cs` (response), `{Table}Request.cs` (write DTO, DataAnnotations validation), `{Table}Query.cs` (filter DTO), lookup models.
-- `Repositories/` — `I{Table}Repository` + `{Table}Repository`, Dapper only, all async. Multi-statement writes use a transaction.
-- `Controllers/` — route `api/{kebab-plural}` (e.g. `api/app-roles`); lookups under `api/lookups/{kebab-plural}`.
-- JSON is camelCase.
-
-**New feature checklist:** model/request/query → repository interface + impl → register in `Program.cs` → controller → tests.
-
-## Backend tests (`src/CMS.API.Tests`)
-
-- Endpoint tests via `CmsApiFactory` (`WebApplicationFactory<Program>`) that swaps the repository for an in-memory fake (`Fake{Table}Repository`). No database required.
-- For a new table: add a fake repository, register it in `CmsApiFactory.ConfigureWebHost`, add `{Table}sControllerTests`.
-
-## Frontend (`src/CMS.NG`)
-
-- Angular 20 file naming without the `.component` suffix: `app-role-list.ts` / class `AppRoleList`. Signals, `inject()`, `@if`/`@for` control flow.
-- Features live in `src/app/features/{kebab-plural}/` with `{table}-list/`, `{table}-detail/`, `{table}-form/`, `{table}.model.ts`, `{table}.service.ts`.
-- Shared: `core/services/lookup.service.ts`, `core/models/lookup.model.ts`, `core/utils/session-state.ts` (`readSession`/`writeSession`).
-- Routes (lazy `loadComponent`) in `app.routes.ts`: `/{plural}`, `/{plural}/new`, `/{plural}/:id`, `/{plural}/:id/edit`. Route params arrive as component `input()`s (`withComponentInputBinding`).
-- Sidebar menu: `navGroups` in `app.ts`.
-- API base URL: `src/environments/environment*.ts`, import as `@env/environment` (tsconfig `paths`). **No dev proxy.**
-- Theme: Aura preset with emerald primary + zh-TW translations in `app/theme.ts`. `MessageService`/`ConfirmationService` are provided app-wide; `<p-toast>`/`<p-confirmDialog>` live in `app.html`.
-- Shared page CSS classes in `src/styles.scss`: `.page-header` (`.title`, `.subtitle`, `.actions`), `.page-card`, `.field` (`.required`, `.error`), `.view-value`, `.chips-wrap`.
-- UI text is Traditional Chinese.
-- Tests: Jasmine specs next to each file; services tested with `HttpTestingController`, components with `jasmine.createSpyObj` service mocks, `provideRouter([])`, `provideNoopAnimations()`.
-
-## Gotchas
-
-- Installing PrimeNG requires explicit `@angular/animations` and `@angular/cdk` (^20) or npm fails with ERESOLVE.
-- Initial-bundle budget in `angular.json` raised to 1MB warn / 2MB error (PrimeNG theme pushes it to ~650kB).
-- PrimeNG `p-table` resets `first` to 0 on user sort; persist paging via `(firstChange)`/`(rowsChange)`, not `(onPage)`.
-- Git Bash `curl -d` with Chinese text gets mis-encoded — use ASCII payloads when smoke-testing the API from the shell.
+- Backend per table: `Models/{Table}.cs` + `{Table}Request.cs` + `{Table}Query.cs` → `Repositories/I{Table}Repository` + impl (Dapper, async, transactions for multi-statement writes) → DI in `Program.cs` → `Controllers/{Table}sController` at `api/{kebab-plural}`, lookups at `api/lookups/{kebab-plural}`. JSON is camelCase.
+- 409 and business-rule 400 responses carry `{ message }` (Traditional Chinese), and the frontend toasts it.
+- Frontend per table: `src/app/features/{kebab-plural}/` with list/detail/form folders, `{table}.model.ts`, `{table}.service.ts`. No `.component` suffix. Signals, `inject()`, `@if`/`@for`. Lazy routes in `app.routes.ts`; sidebar in `navGroups` (`app.ts`).
+- Tests are always written: backend uses in-memory fakes via `CmsApiFactory` (no Moq, no DB); frontend uses Jasmine specs next to each file.
+- When `/crud` disagrees with this repo (`core/models` paths, Moq, `RowAuditWriter`/`RowAuditBadgeComponent`), follow this repo.
+- After building a feature, add its notes to `docs/claude/features.md` and a row to the index below.
 
 ## Features
 
-### AppRole (`database/auth.sql`) — 系統管理 Admin › 角色 AppRole
-- Table PK is `RoleId` (nvarchar), but `pkid` (int identity) is used for routes and PUT body. **`RoleId` is immutable on update** (referenced by `AppUserRole`); disabled in the edit form.
-- n-n users via `AppUserRole` (keyed by `UserId`/`RoleId` strings): `AppRoleRequest.UserIds: List<string>`, delete-then-reinsert on update; `UserCount` subquery in list; `Users` populated only on GET by id.
-- Duplicate `RoleId` on create → 409 with `{ message }`, shown as a toast.
-- Filters: `keyword` (LIKE on RoleId, RoleName, Description), `permissionLevelFrom`/`To`. Default sort `RoleId ASC`.
-- `Description` is optional (nullable in DB). `PermissionLevel` defaults to 100.
-- Delete removes `AppUserRole` rows first (in a transaction).
-- Lookup: `GET /api/lookups/app-users` (ordered by `UserName`).
+| Feature | Menu | Key facts |
+|---|---|---|
+| AppRole | 系統管理 › 角色 | string PK `RoleId` + `pkid` route key; n-n users |
+| AppUser | 系統管理 › 使用者 | string PK `UserId`; `PasswordHash` backend-only (SHA-256 of SysConfig default); reset-password endpoint; n-n roles |
+| PublishStatus | 系統管理 › 發布狀態 | tinyint non-IDENTITY PK |
+| Partner | 課程管理 › 原廠 | smallint IDENTITY; 5 child counts incl. Seminar (no FK) |
+| CourseGroup | 課程管理 › 課程群組 | smallint IDENTITY; minimal template |
+| Course | 課程管理 › 課程 | FKs + n-n + long texts + CourseRecomm string-key children |
+
+## Environment gotchas
+
+- Git Bash: quote the server name (`sqlcmd -S '.\SQLEXPRESS'`). Chinese prints garbled in sqlcmd output, so query non-text columns. `curl -d` mis-encodes Chinese, so use ASCII payloads.
+- A running `dotnet run` locks `CMS.API/bin` (MSB3027). The user often leaves an API on :5000 with old code: don't kill it. Use `dotnet test --artifacts-path <temp>`, and smoke-test with a second copy: `dotnet run --project CMS.API --artifacts-path <temp> --urls http://localhost:5099`.
+- Smoke tests write real rows: use ASCII `ZZ…`/`zz…` keys, delete them afterwards, and check side tables (`CourseRecomm`, `AppUserRole`) with sqlcmd.
+- No real Python (`python` is the Store stub). Edit with Edit/Write or `node`; `jq` is available.
+- Write C#/TS source with the Write tool: long heredocs break, and in `node -e "…"` bash eats backticks and `${…}`. A single-quoted `node -e '…'` with `\x27` for apostrophes is safe.

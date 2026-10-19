@@ -1,0 +1,29 @@
+.sticky-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  column-gap: 1.5rem;
+}
+
+.span-2 {
+  grid-column: span 2;
+}
+
+.span-all {
+  grid-column: 1 / -1;
+}
+
+textarea {
+  width: 100%;
+}
+
+@media (max-width: 40rem) {
+  .span-2 {
+    grid-column: 1 / -1;
+  }
+}

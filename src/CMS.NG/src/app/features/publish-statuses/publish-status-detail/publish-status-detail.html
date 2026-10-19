@@ -1,0 +1,49 @@
+<div class="page-header">
+  <h1 class="title">檢視發布狀態</h1>
+  <div class="actions">
+    <p-button label="返回" icon="pi pi-arrow-left" severity="secondary" (onClick)="back()" />
+    @if (status()) {
+      <p-button label="編輯" icon="pi pi-pencil" (onClick)="edit()" />
+    }
+  </div>
+</div>
+
+@if (status(); as s) {
+  <section class="page-card">
+    <h2>發布狀態資料</h2>
+    <div class="field">
+      <label>主代碼</label>
+      <div class="view-value" data-field="pkid">{{ s.pkid }}</div>
+    </div>
+    <div class="field">
+      <label>狀態名稱</label>
+      <div class="view-value" data-field="description">{{ s.description }}</div>
+    </div>
+    <div class="field">
+      <label>草稿</label>
+      <div class="view-value" data-field="isDraft">{{ s.isDraft ? '是' : '否' }}</div>
+    </div>
+    <div class="field">
+      <label>已發布</label>
+      <div class="view-value" data-field="isPublished">{{ s.isPublished ? '是' : '否' }}</div>
+    </div>
+    <div class="field">
+      <label>已停用</label>
+      <div class="view-value" data-field="isDiscontinued">{{ s.isDiscontinued ? '是' : '否' }}</div>
+    </div>
+  </section>
+
+  <section class="page-card">
+    <h2>使用情形</h2>
+    <div class="field">
+      <label>對應課程</label>
+      <div class="view-value" data-field="courseCount"><a [routerLink]="['/courses']" [queryParams]="{ publishStatusPkid: s.pkid }">{{ s.courseCount }} 筆</a></div>
+    </div>
+    <div class="field">
+      <label>對應推廣項目</label>
+      <div class="view-value" data-field="promotion2Count">{{ s.promotion2Count }} 筆</div>
+    </div>
+  </section>
+} @else if (notFound()) {
+  <section class="page-card muted">找不到此發布狀態資料。</section>
+}

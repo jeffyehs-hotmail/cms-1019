@@ -1,0 +1,230 @@
+<form [formGroup]="form" (ngSubmit)="save()">
+  <div class="page-header sticky-toolbar">
+    <h1 class="title">{{ isEdit() ? '編輯課程' : '新增課程' }}</h1>
+    <div class="actions">
+      <p-button label="取消" icon="pi pi-times" severity="secondary" (onClick)="cancel()" />
+      <p-button type="submit" label="儲存" icon="pi pi-check" [loading]="saving()" />
+    </div>
+  </div>
+
+  <section class="page-card">
+    <h2>基本資料</h2>
+    <div class="grid">
+      @if (isEdit()) {
+        <div class="field">
+          <label>主代碼</label>
+          <div class="view-value">{{ id() }}</div>
+        </div>
+      }
+
+      <div class="field">
+        <label for="courseId" class="required">簡介代碼</label>
+        <input pInputText id="courseId" formControlName="courseId" />
+        @if (showError('courseId')) {
+          <small class="error">{{ errorText('courseId', '簡介代碼', 50) }}</small>
+        }
+      </div>
+
+      <div class="field">
+        <label for="prodCourseId" class="required">科目代碼</label>
+        <input pInputText id="prodCourseId" formControlName="prodCourseId" />
+        @if (showError('prodCourseId')) {
+          <small class="error">{{ errorText('prodCourseId', '科目代碼', 50) }}</small>
+        }
+      </div>
+
+      <div class="field">
+        <label for="displayOrder" class="required">顯示順序</label>
+        <p-inputNumber inputId="displayOrder" formControlName="displayOrder" [useGrouping]="false" fluid />
+        @if (showError('displayOrder')) {
+          <small class="error">請輸入顯示順序</small>
+        }
+      </div>
+
+      <div class="field span-2">
+        <label for="title" class="required">課程名稱</label>
+        <input pInputText id="title" formControlName="title" />
+        @if (showError('title')) {
+          <small class="error">{{ errorText('title', '課程名稱', 200) }}</small>
+        }
+      </div>
+
+      <div class="field span-2">
+        <label for="officialTitle">官方課程名稱</label>
+        <input pInputText id="officialTitle" formControlName="officialTitle" />
+        @if (showError('officialTitle')) {
+          <small class="error">{{ errorText('officialTitle', '官方課程名稱', 300) }}</small>
+        }
+      </div>
+
+      <div class="field span-2">
+        <label for="friendlyUrl" class="required">友善網址</label>
+        <input pInputText id="friendlyUrl" formControlName="friendlyUrl" />
+        @if (showError('friendlyUrl')) {
+          <small class="error">{{ errorText('friendlyUrl', '友善網址', 100) }}</small>
+        }
+      </div>
+
+      <div class="field">
+        <label for="partnerPkid" class="required">原廠</label>
+        <p-select
+          inputId="partnerPkid"
+          formControlName="partnerPkid"
+          [options]="partners()"
+          optionLabel="name"
+          optionValue="pkid"
+          [filter]="true"
+          placeholder="請選擇原廠"
+          appendTo="body"
+          fluid
+        />
+        @if (showError('partnerPkid')) {
+          <small class="error">請選擇原廠</small>
+        }
+      </div>
+
+      <div class="field">
+        <label for="courseGroupPkid">課程群組</label>
+        <p-select
+          inputId="courseGroupPkid"
+          formControlName="courseGroupPkid"
+          [options]="courseGroups()"
+          optionLabel="description"
+          optionValue="pkid"
+          [filter]="true"
+          [showClear]="true"
+          [virtualScroll]="true"
+          [virtualScrollItemSize]="43"
+          placeholder="無"
+          appendTo="body"
+          fluid
+        />
+      </div>
+
+      <div class="field">
+        <label for="publishStatusPkid" class="required">上架狀態</label>
+        <p-select
+          inputId="publishStatusPkid"
+          formControlName="publishStatusPkid"
+          [options]="publishStatuses()"
+          optionLabel="description"
+          optionValue="pkid"
+          placeholder="請選擇上架狀態"
+          appendTo="body"
+          fluid
+        />
+        @if (showError('publishStatusPkid')) {
+          <small class="error">請選擇上架狀態</small>
+        }
+      </div>
+    </div>
+  </section>
+
+  <section class="page-card">
+    <h2>上架與價格</h2>
+    <div class="grid">
+      <div class="field">
+        <label for="scheduleOn" class="required">上架日期</label>
+        <p-datepicker inputId="scheduleOn" formControlName="scheduleOn" dateFormat="yy/mm/dd" [showIcon]="true" appendTo="body" fluid />
+        @if (showError('scheduleOn')) {
+          <small class="error">請選擇上架日期</small>
+        }
+      </div>
+
+      <div class="field">
+        <label for="scheduleOff" class="required">下架日期</label>
+        <p-datepicker inputId="scheduleOff" formControlName="scheduleOff" dateFormat="yy/mm/dd" [showIcon]="true" appendTo="body" fluid />
+        @if (showError('scheduleOff')) {
+          <small class="error">請選擇下架日期</small>
+        } @else if (showRangeError()) {
+          <small class="error" data-error="scheduleRange">下架日期不可早於上架日期</small>
+        }
+      </div>
+
+      <div class="field">
+        <label for="hour" class="required">時數</label>
+        <p-inputNumber inputId="hour" formControlName="hour" [min]="0" [max]="32767" [useGrouping]="false" fluid />
+        @if (showError('hour')) {
+          <small class="error">請輸入時數</small>
+        }
+      </div>
+
+      <div class="field">
+        <label for="listPrice" class="required">定價</label>
+        <p-inputNumber inputId="listPrice" formControlName="listPrice" [min]="0" [max]="999999999" [maxFractionDigits]="0" fluid />
+        @if (showError('listPrice')) {
+          <small class="error">請輸入定價</small>
+        }
+      </div>
+
+      <div class="field">
+        <label for="learningCredit" class="required">點數</label>
+        <p-inputNumber
+          inputId="learningCredit"
+          formControlName="learningCredit"
+          [min]="0"
+          [max]="99999999.9"
+          [minFractionDigits]="1"
+          [maxFractionDigits]="1"
+          fluid
+        />
+        @if (showError('learningCredit')) {
+          <small class="error">請輸入點數</small>
+        }
+      </div>
+
+      <div class="field">
+        <label for="canRepeat">允許重聽</label>
+        <p-toggleswitch inputId="canRepeat" formControlName="canRepeat" />
+      </div>
+
+      <div class="field span-all">
+        <label for="certificationPkids">相關認證</label>
+        <p-multiselect
+          inputId="certificationPkids"
+          formControlName="certificationPkids"
+          [options]="certifications()"
+          optionLabel="label"
+          optionValue="pkid"
+          display="chip"
+          [maxSelectedLabels]="9999"
+          [filter]="true"
+          placeholder="選擇認證（可複選）"
+          appendTo="body"
+          styleClass="chips-wrap"
+          fluid
+        />
+      </div>
+
+      <div class="field span-all">
+        <label for="jobCategoryPkids">職務類別</label>
+        <p-multiselect
+          inputId="jobCategoryPkids"
+          formControlName="jobCategoryPkids"
+          [options]="jobCategories()"
+          optionLabel="description"
+          optionValue="pkid"
+          display="chip"
+          [maxSelectedLabels]="9999"
+          placeholder="選擇職務類別（可複選）"
+          appendTo="body"
+          styleClass="chips-wrap"
+          fluid
+        />
+      </div>
+    </div>
+  </section>
+
+  <section class="page-card">
+    <h2>課程內容</h2>
+    @for (t of textControls; track t.key) {
+      <div class="field">
+        <label [for]="t.key">{{ t.label }}</label>
+        <textarea pTextarea [id]="t.key" [formControlName]="t.key" [autoResize]="true" rows="3"></textarea>
+        @if (showError(t.key)) {
+          <small class="error">最多 {{ t.max }} 字</small>
+        }
+      </div>
+    }
+  </section>
+</form>

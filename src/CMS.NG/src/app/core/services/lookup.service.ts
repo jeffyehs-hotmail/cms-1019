@@ -2,7 +2,16 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '@env/environment';
-import { AppUserLookup } from '../models/lookup.model';
+import {
+  AppRoleLookup,
+  AppUserLookup,
+  CertificationLookup,
+  CourseGroupLookup,
+  CourseLookup,
+  JobCategoryLookup,
+  PartnerLookup,
+  PublishStatusLookup,
+} from '../models/lookup.model';
 
 @Injectable({ providedIn: 'root' })
 export class LookupService {
@@ -11,5 +20,33 @@ export class LookupService {
 
   getAppUsers(): Observable<AppUserLookup[]> {
     return this.http.get<AppUserLookup[]>(`${this.baseUrl}/app-users`);
+  }
+
+  getAppRoles(): Observable<AppRoleLookup[]> {
+    return this.http.get<AppRoleLookup[]>(`${this.baseUrl}/app-roles`);
+  }
+
+  getPublishStatuses(): Observable<PublishStatusLookup[]> {
+    return this.http.get<PublishStatusLookup[]>(`${this.baseUrl}/publish-statuses`);
+  }
+
+  getPartners(): Observable<PartnerLookup[]> {
+    return this.http.get<PartnerLookup[]>(`${this.baseUrl}/partners`);
+  }
+
+  getCourseGroups(): Observable<CourseGroupLookup[]> {
+    return this.http.get<CourseGroupLookup[]>(`${this.baseUrl}/course-groups`);
+  }
+
+  getCertifications(): Observable<CertificationLookup[]> {
+    return this.http.get<CertificationLookup[]>(`${this.baseUrl}/certifications`);
+  }
+
+  getJobCategories(): Observable<JobCategoryLookup[]> {
+    return this.http.get<JobCategoryLookup[]>(`${this.baseUrl}/job-categories`);
+  }
+
+  getCourses(): Observable<CourseLookup[]> {
+    return this.http.get<CourseLookup[]>(`${this.baseUrl}/courses`);
   }
 }

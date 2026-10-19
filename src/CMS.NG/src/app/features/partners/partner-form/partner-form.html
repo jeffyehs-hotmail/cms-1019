@@ -1,0 +1,68 @@
+<form [formGroup]="form" (ngSubmit)="save()">
+  <div class="page-header">
+    <h1 class="title">{{ isEdit() ? '編輯原廠' : '新增原廠' }}</h1>
+    <div class="actions">
+      <p-button label="取消" icon="pi pi-times" severity="secondary" (onClick)="cancel()" />
+      <p-button type="submit" label="儲存" icon="pi pi-check" [loading]="saving()" />
+    </div>
+  </div>
+
+  <section class="page-card">
+    <h2>原廠資料</h2>
+
+    @if (isEdit()) {
+      <div class="field">
+        <label>主代碼</label>
+        <div class="view-value">{{ id() }}</div>
+      </div>
+    }
+
+    <div class="field">
+      <label for="name" class="required">名稱</label>
+      <input pInputText id="name" formControlName="name" />
+      @if (showError('name')) {
+        <small class="error">{{ errorText('name', '名稱', 50) }}</small>
+      }
+    </div>
+
+    <div class="field">
+      <label for="appKey" class="required">應用代碼</label>
+      <input pInputText id="appKey" formControlName="appKey" />
+      @if (showError('appKey')) {
+        <small class="error">{{ errorText('appKey', '應用代碼', 10) }}</small>
+      }
+    </div>
+
+    <div class="field">
+      <label for="nameOnPartnerMenu" class="required">原廠選單名稱</label>
+      <input pInputText id="nameOnPartnerMenu" formControlName="nameOnPartnerMenu" />
+      @if (showError('nameOnPartnerMenu')) {
+        <small class="error">{{ errorText('nameOnPartnerMenu', '原廠選單名稱', 200) }}</small>
+      }
+    </div>
+
+    <div class="field">
+      <label for="nameOnCourseDetailPage" class="required">課程頁名稱</label>
+      <input pInputText id="nameOnCourseDetailPage" formControlName="nameOnCourseDetailPage" />
+      @if (showError('nameOnCourseDetailPage')) {
+        <small class="error">{{ errorText('nameOnCourseDetailPage', '課程頁名稱', 50) }}</small>
+      }
+    </div>
+
+    <div class="field">
+      <label for="displayOrder" class="required">顯示順序</label>
+      <p-inputNumber inputId="displayOrder" formControlName="displayOrder" [useGrouping]="false" fluid />
+      @if (showError('displayOrder')) {
+        <small class="error">請輸入顯示順序</small>
+      }
+    </div>
+
+    <div class="field">
+      <label for="imageFilename">圖檔名稱</label>
+      <input pInputText id="imageFilename" formControlName="imageFilename" placeholder="例：ms.png" />
+      @if (showError('imageFilename')) {
+        <small class="error">{{ errorText('imageFilename', '圖檔名稱', 50) }}</small>
+      }
+    </div>
+  </section>
+</form>

@@ -28,7 +28,20 @@ export class App {
     {
       label: '系統管理 Admin',
       icon: 'pi pi-shield',
-      items: [{ label: '角色 AppRole', icon: 'pi pi-id-card', route: '/app-roles' }],
+      items: [
+        { label: '使用者 AppUser', icon: 'pi pi-user', route: '/app-users' },
+        { label: '角色 AppRole', icon: 'pi pi-id-card', route: '/app-roles' },
+        { label: '發布狀態 PublishStatus', icon: 'pi pi-flag', route: '/publish-statuses' },
+      ],
+    },
+    {
+      label: '課程管理 Course',
+      icon: 'pi pi-book',
+      items: [
+        { label: '原廠 Partner', icon: 'pi pi-building', route: '/partners' },
+        { label: '課程群組 CourseGroup', icon: 'pi pi-sitemap', route: '/course-groups' },
+        { label: '課程 Course', icon: 'pi pi-book', route: '/courses' },
+      ],
     },
   ];
 

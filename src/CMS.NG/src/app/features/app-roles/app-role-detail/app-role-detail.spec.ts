@@ -58,6 +58,13 @@ describe('AppRoleDetail', () => {
     expect(chips[0].textContent).toContain('Alice (alice)');
   });
 
+  it('links the user count to the user list filtered by role', () => {
+    const el = create();
+    const link = el.querySelector('[data-field="userCount"]') as HTMLAnchorElement;
+    expect(link.textContent?.trim()).toBe('(2)');
+    expect(link.getAttribute('href')).toBe('/app-users?roleId=Admin');
+  });
+
   it('shows a not-found message on 404', () => {
     service.getById.and.returnValue(throwError(() => new HttpErrorResponse({ status: 404 })));
     const el = create('999');

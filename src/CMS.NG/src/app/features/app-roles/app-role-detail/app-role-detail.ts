@@ -1,5 +1,5 @@
 import { Component, OnInit, inject, input, signal } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { MessageService } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
 import { ChipModule } from 'primeng/chip';
@@ -8,7 +8,7 @@ import { AppRoleService } from '../app-role.service';
 
 @Component({
   selector: 'app-app-role-detail',
-  imports: [ButtonModule, ChipModule],
+  imports: [RouterLink, ButtonModule, ChipModule],
   templateUrl: './app-role-detail.html',
 })
 export class AppRoleDetail implements OnInit {

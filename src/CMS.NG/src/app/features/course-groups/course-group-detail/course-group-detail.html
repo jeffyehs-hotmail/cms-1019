@@ -1,0 +1,37 @@
+<div class="page-header">
+  <h1 class="title">檢視課程群組</h1>
+  <div class="actions">
+    <p-button label="返回" icon="pi pi-arrow-left" severity="secondary" (onClick)="back()" />
+    @if (courseGroup()) {
+      <p-button label="編輯" icon="pi pi-pencil" (onClick)="edit()" />
+    }
+  </div>
+</div>
+
+@if (courseGroup(); as g) {
+  <section class="page-card">
+    <h2>課程群組資料</h2>
+    <div class="field">
+      <label>主代碼</label>
+      <div class="view-value" data-field="pkid">{{ g.pkid }}</div>
+    </div>
+    <div class="field">
+      <label>群組名稱</label>
+      <div class="view-value" data-field="description">{{ g.description }}</div>
+    </div>
+  </section>
+
+  <section class="page-card">
+    <h2>使用情形</h2>
+    <div class="field">
+      <label>對應課程</label>
+      <div class="view-value" data-field="courseCount"><a [routerLink]="['/courses']" [queryParams]="{ courseGroupPkid: g.pkid }">{{ g.courseCount }} 筆</a></div>
+    </div>
+    <div class="field">
+      <label>對應原廠課程群組</label>
+      <div class="view-value" data-field="partnerCourseGroupCount">{{ g.partnerCourseGroupCount }} 筆</div>
+    </div>
+  </section>
+} @else if (notFound()) {
+  <section class="page-card muted">找不到此課程群組資料。</section>
+}

@@ -17,15 +17,17 @@ describe('App', () => {
     expect(fixture.componentInstance).toBeTruthy();
   });
 
-  it('renders the 系統管理 Admin > 角色 AppRole sidebar entry', () => {
+  it('renders the 系統管理 Admin > 使用者 AppUser / 角色 AppRole sidebar entries', () => {
     const fixture = TestBed.createComponent(App);
     fixture.detectChanges();
     const el = fixture.nativeElement as HTMLElement;
 
     expect(el.querySelector('.nav-group')?.textContent).toContain('系統管理 Admin');
-    const link = el.querySelector('.nav-items a') as HTMLAnchorElement;
-    expect(link.textContent).toContain('角色 AppRole');
-    expect(link.getAttribute('href')).toBe('/app-roles');
+    const links = el.querySelectorAll('.nav-items a') as NodeListOf<HTMLAnchorElement>;
+    expect(links[0].textContent).toContain('使用者 AppUser');
+    expect(links[0].getAttribute('href')).toBe('/app-users');
+    expect(links[1].textContent).toContain('角色 AppRole');
+    expect(links[1].getAttribute('href')).toBe('/app-roles');
   });
 
   it('collapses a nav group when its header is clicked', () => {
@@ -33,9 +35,13 @@ describe('App', () => {
     fixture.detectChanges();
     const el = fixture.nativeElement as HTMLElement;
 
+    expect(el.querySelectorAll('.nav-items').length).toBe(2);
     (el.querySelector('.nav-group') as HTMLButtonElement).click();
     fixture.detectChanges();
 
-    expect(el.querySelector('.nav-items')).toBeNull();
+    // Only the clicked group (系統管理 Admin) collapses; 課程管理 Course stays open.
+    const remaining = el.querySelectorAll('.nav-items');
+    expect(remaining.length).toBe(1);
+    expect(remaining[0].textContent).toContain('原廠 Partner');
   });
 });

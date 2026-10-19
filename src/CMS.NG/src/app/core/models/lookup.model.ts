@@ -4,3 +4,48 @@ export interface AppUserLookup {
   userId: string;
   userName: string;
 }
+
+/** Slim AppRole from GET /api/lookups/app-roles (ordered by RoleId). */
+export interface AppRoleLookup {
+  pkid: number;
+  roleId: string;
+  roleName: string;
+}
+
+/** Slim PublishStatus from GET /api/lookups/publish-statuses (ordered by pkid). */
+export interface PublishStatusLookup {
+  pkid: number;
+  description: string;
+}
+
+/** Slim Partner from GET /api/lookups/partners (ordered by DisplayOrder, Name). */
+export interface PartnerLookup {
+  pkid: number;
+  name: string;
+}
+
+/** Slim CourseGroup from GET /api/lookups/course-groups (ordered by Description). */
+export interface CourseGroupLookup {
+  pkid: number;
+  description: string;
+}
+
+/** Slim Certification from GET /api/lookups/certifications (ordered by partner, then title). */
+export interface CertificationLookup {
+  pkid: number;
+  title: string;
+  partnerName: string;
+}
+
+/** Slim JobCategory from GET /api/lookups/job-categories (ordered by Description). */
+export interface JobCategoryLookup {
+  pkid: number;
+  description: string;
+}
+
+/** Slim Course from GET /api/lookups/courses (ordered by CourseId). */
+export interface CourseLookup {
+  pkid: number;
+  courseId: string;
+  title: string;
+}

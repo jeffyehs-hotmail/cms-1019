@@ -40,7 +40,10 @@
   </section>
 
   <section class="page-card">
-    <h2>使用者 <span class="muted">({{ r.users.length }})</span></h2>
+    <h2>
+      使用者
+      <a class="muted" data-field="userCount" [routerLink]="['/app-users']" [queryParams]="{ roleId: r.roleId }">({{ r.users.length }})</a>
+    </h2>
     @if (r.users.length) {
       <div class="user-chips">
         @for (u of r.users; track u.userId) {

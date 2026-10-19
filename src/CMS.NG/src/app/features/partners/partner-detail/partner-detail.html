@@ -1,0 +1,69 @@
+<div class="page-header">
+  <h1 class="title">檢視原廠</h1>
+  <div class="actions">
+    <p-button label="返回" icon="pi pi-arrow-left" severity="secondary" (onClick)="back()" />
+    @if (partner()) {
+      <p-button label="編輯" icon="pi pi-pencil" (onClick)="edit()" />
+    }
+  </div>
+</div>
+
+@if (partner(); as p) {
+  <section class="page-card">
+    <h2>原廠資料</h2>
+    <div class="field">
+      <label>主代碼</label>
+      <div class="view-value" data-field="pkid">{{ p.pkid }}</div>
+    </div>
+    <div class="field">
+      <label>名稱</label>
+      <div class="view-value" data-field="name">{{ p.name }}</div>
+    </div>
+    <div class="field">
+      <label>應用代碼</label>
+      <div class="view-value" data-field="appKey">{{ p.appKey }}</div>
+    </div>
+    <div class="field">
+      <label>原廠選單名稱</label>
+      <div class="view-value" data-field="nameOnPartnerMenu">{{ p.nameOnPartnerMenu }}</div>
+    </div>
+    <div class="field">
+      <label>課程頁名稱</label>
+      <div class="view-value" data-field="nameOnCourseDetailPage">{{ p.nameOnCourseDetailPage }}</div>
+    </div>
+    <div class="field">
+      <label>顯示順序</label>
+      <div class="view-value" data-field="displayOrder">{{ p.displayOrder }}</div>
+    </div>
+    <div class="field">
+      <label>圖檔名稱</label>
+      <div class="view-value" data-field="imageFilename">{{ p.imageFilename ?? '—' }}</div>
+    </div>
+  </section>
+
+  <section class="page-card">
+    <h2>使用情形</h2>
+    <div class="field">
+      <label>對應課程</label>
+      <div class="view-value" data-field="courseCount"><a [routerLink]="['/courses']" [queryParams]="{ partnerPkid: p.pkid }">{{ p.courseCount }} 筆</a></div>
+    </div>
+    <div class="field">
+      <label>對應認證</label>
+      <div class="view-value" data-field="certificationCount">{{ p.certificationCount }} 筆</div>
+    </div>
+    <div class="field">
+      <label>對應原廠課程群組</label>
+      <div class="view-value" data-field="partnerCourseGroupCount">{{ p.partnerCourseGroupCount }} 筆</div>
+    </div>
+    <div class="field">
+      <label>對應推廣項目</label>
+      <div class="view-value" data-field="promotion2Count">{{ p.promotion2Count }} 筆</div>
+    </div>
+    <div class="field">
+      <label>對應講座</label>
+      <div class="view-value" data-field="seminarCount">{{ p.seminarCount }} 筆</div>
+    </div>
+  </section>
+} @else if (notFound()) {
+  <section class="page-card muted">找不到此原廠資料。</section>
+}

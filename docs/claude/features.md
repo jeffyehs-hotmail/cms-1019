@@ -1,0 +1,53 @@
+# Feature notes
+
+Per-feature decisions that aren't obvious from the code. Read the section for a feature before changing it, or one that is FK-related to it. Full specs are in `spec/{sub-system}/{Table}.md`. Add a section here (and a row to the index in CLAUDE.md) when you build a new feature.
+
+## AppRole — 系統管理 Admin › 角色 (`database/auth.sql`)
+- Table PK `RoleId` (nvarchar), immutable on update (referenced by `AppUserRole`); `pkid` used for routes/PUT. Duplicate → 409.
+- n-n users via `AppUserRole` (string keys): `UserIds: List<string>`, `UserCount` in list, `Users` on GET by id. Delete removes `AppUserRole` rows first.
+- Filters: keyword (RoleId, RoleName, Description), `permissionLevelFrom`/`To`. Sort `RoleId ASC`. `Description` optional; `PermissionLevel` defaults to 100.
+- Lookup `app-users` (ordered by UserName). Detail page's user count links to `/app-users?roleId=`.
+
+## AppUser — 系統管理 Admin › 使用者 (`database/auth.sql`, `spec/auth/AppUser.md`)
+- Table PK `UserId` (nvarchar), immutable on update; `pkid` used for routes/PUT. Duplicate → 409.
+- **`PasswordHash` never leaves the backend** (no model has it; the SELECT skips it). Format: lowercase hex SHA-256 of the UTF-8 password, unsalted (`Security/PasswordHasher`), matching existing rows.
+- Create hashes `SysConfig['appConfig'].defaultPassword` and sets `PasswordUpdatedTime = NULL`. Update never touches the password. `POST /api/app-users/{id}/reset-password` restores the default hash, time → NULL (detail page 重設密碼). Missing appConfig/defaultPassword → 500 `{ message }`.
+- n-n roles via `AppUserRole`: `RoleIds: List<string>`, unknown ids → 400 (`CheckRolesAsync`). Delete removes the user's role rows first.
+- Filters: keyword (UserId, UserName), tri-state `isActive`, `roleId` (also `?roleId=`). Sort `UserId ASC`.
+- Lookup `app-roles` (`{ pkid, roleId, roleName }`, by RoleId).
+- No password field in the form (new mode shows a default-password hint). `PasswordUpdatedTime` is displayed as returned (no `'Z'`); NULL shows 尚未變更（預設密碼）.
+- Data: seed user `admin@example.com` (pkid 14, role `Admin`), roles `Admin`/`User`. The default password lives only in `SysConfig` (never copy it into the repo, which is public).
+
+## PublishStatus — 系統管理 Admin › 發布狀態 (`database/admin.sql`, `spec/admin/PublishStatus.md`)
+- PK `pkid` **tinyint, not IDENTITY** (C# `byte`): entered on create (1–255, duplicate → 409), disabled on edit.
+- Referenced by `Course`, `Promotion2`: `CourseCount`/`Promotion2Count`; in use → DELETE 409.
+- Filters: keyword (Description), tri-state `isDraft`/`isPublished`/`isDiscontinued`. Sort `pkid ASC`.
+- Lookup `publish-statuses` (`{ pkid, description }`, by pkid).
+- Data: 1 草稿 / 2 上架中 / 3 已下架, all in use. Course count links to `/courses?publishStatusPkid=`; Promotion2 link deferred.
+
+## Partner — 課程管理 Course › 原廠 (`database/course.sql`, `spec/course/Partner.md`)
+- PK `pkid` **smallint IDENTITY** (C# `short`).
+- `AppKey` (varchar 10) unique in the API only → 409 on create/update. `AppKey`/`ImageFilename` are varchar (ASCII, AnsiString). Blank `ImageFilename` → NULL.
+- Referenced by `Course`, `Certification`, `PartnerCourseGroup`, `Promotion2.RelatedPartner_pkid` (FKs) and `Seminar.Partner_pkid` (**no FK**). All five counts in the SELECT; DELETE → 409 if any > 0. List shows course/certification counts, detail all five.
+- Filter: keyword (Name, AppKey, NameOnPartnerMenu, NameOnCourseDetailPage, ImageFilename). Sort `DisplayOrder ASC, pkid DESC`.
+- Lookup `partners` (`{ pkid, name }`, by DisplayOrder, Name).
+- Data: 66 rows, most in use. Course count links to `/courses?partnerPkid=`; Promotion2 will use `relatedPartnerPkid`.
+
+## CourseGroup — 課程管理 Course › 課程群組 (`database/course.sql`, `spec/course/CourseGroup.md`)
+- `pkid` (**smallint IDENTITY**) + `Description` nvarchar(100) (label 群組名稱). Description is **not** unique (existing duplicates).
+- Referenced by `Course.CourseGroup_pkid` (nullable) and `PartnerCourseGroup.CourseGroup_pkid`: both counts in the SELECT; in use → DELETE 409. (`Promotion2.RelatedPartnerCourseGroup_pkid` points at `PartnerCourseGroup`, not here.)
+- Filter: keyword (Description). Sort `pkid DESC`.
+- Lookup `course-groups` (`{ pkid, description }`, by Description; 215 items → filter + virtual scroll).
+- Course count links to `/courses?courseGroupPkid=`.
+
+## Course — 課程管理 Course › 課程 (`database/course.sql`, `spec/course/Course.md`)
+- PK `pkid` int IDENTITY. FKs `Partner_pkid` (smallint), `CourseGroup_pkid` (smallint, **nullable**), `PublishStatus_pkid` (tinyint), JOINed for `PartnerName`, `CourseGroupDescription` (LEFT), `PublishStatusDescription`.
+- **List SELECT leaves out the 8 long-text columns** (`Outline`/`TowardCertOrExam` are nvarchar(max)); GET by id fills them plus n-n `Certifications`/`JobCategories`.
+- `CourseId` (varchar 50) unique in the API (409); `ProdCourseId`/`FriendlyUrl` may repeat. `CourseId`/`ProdCourseId` ASCII + AnsiString.
+- 400s: bad FK/n-n ids (`CheckReferencesAsync`), `ScheduleOff < ScheduleOn` (one existing row breaks this), `ListPrice` with decimals, `LearningCredit` with more than one decimal.
+- n-n `CourseInCertification` (`CertificationPkids`), `CourseJobCategories` (`JobCategoryPkids`); DB cascades on delete. `Certification.Title` is nchar → RTRIM.
+- Delete guard: `CourseFAQ`, `CourseRelatedLink`, `HotCourse` → 409. `CourseRecomm` is keyed by the **CourseId string** (no FK, 895 orphans): delete removes rows on both sides; a rename updates `CourseId`/`RecommCourseId` in the same transaction.
+- Filters: keyword (Title, OfficialTitle, CourseId, ProdCourseId, FriendlyUrl), partner / course group / publish status, ScheduleOn/Off ranges (inclusive), tri-state canRepeat. Sort `DisplayOrder ASC, pkid DESC`. Accepts `?partnerPkid=` / `?courseGroupPkid=` / `?publishStatusPkid=`.
+- New form defaults: ScheduleOn = today, ScheduleOff = Dec 31 of next year.
+- Lookups: `certifications` (`{ pkid, title, partnerName }`), `job-categories`, `courses` (`{ pkid, courseId, title }`).
+- Not built (from `spec/sample1.spec.md`): copy, QR code, print to PDF, CourseRelatedLink / CourseRecomm sub-panels.

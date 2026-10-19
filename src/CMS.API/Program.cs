@@ -29,6 +29,11 @@ builder.Services.AddSingleton<IDbConnectionFactory>(_ =>
         ?? throw new InvalidOperationException("Connection string 'CMS' not found.")));
 
 builder.Services.AddScoped<IAppRoleRepository, AppRoleRepository>();
+builder.Services.AddScoped<IAppUserRepository, AppUserRepository>();
+builder.Services.AddScoped<IPublishStatusRepository, PublishStatusRepository>();
+builder.Services.AddScoped<IPartnerRepository, PartnerRepository>();
+builder.Services.AddScoped<ICourseGroupRepository, CourseGroupRepository>();
+builder.Services.AddScoped<ICourseRepository, CourseRepository>();
 builder.Services.AddScoped<ILookupRepository, LookupRepository>();
 
 var app = builder.Build();

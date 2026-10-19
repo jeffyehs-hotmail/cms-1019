@@ -1,0 +1,157 @@
+<div class="page-header">
+  <h1 class="title">檢視課程</h1>
+  <div class="actions">
+    <p-button label="返回" icon="pi pi-arrow-left" severity="secondary" (onClick)="back()" />
+    @if (course(); as c) {
+      <p-button label="編輯" icon="pi pi-pencil" (onClick)="edit()" />
+      <span [pTooltip]="inUse(c) ? '使用中無法刪除' : undefined">
+        <p-button
+          label="刪除"
+          icon="pi pi-trash"
+          severity="danger"
+          [outlined]="true"
+          [disabled]="inUse(c)"
+          (onClick)="confirmDelete(c)"
+        />
+      </span>
+    }
+  </div>
+</div>
+
+@if (course(); as c) {
+  <section class="page-card">
+    <h2>基本資料</h2>
+    <div class="grid">
+      <div class="field">
+        <label>主代碼</label>
+        <div class="view-value" data-field="pkid">{{ c.pkid }}</div>
+      </div>
+      <div class="field">
+        <label>顯示順序</label>
+        <div class="view-value" data-field="displayOrder">{{ c.displayOrder }}</div>
+      </div>
+      <div class="field">
+        <label>簡介代碼</label>
+        <div class="view-value" data-field="courseId">{{ c.courseId }}</div>
+      </div>
+      <div class="field">
+        <label>科目代碼</label>
+        <div class="view-value" data-field="prodCourseId">{{ c.prodCourseId }}</div>
+      </div>
+      <div class="field span-2">
+        <label>課程名稱</label>
+        <div class="view-value" data-field="title">{{ c.title }}</div>
+      </div>
+      <div class="field span-2">
+        <label>官方課程名稱</label>
+        <div class="view-value" data-field="officialTitle">{{ c.officialTitle ?? '—' }}</div>
+      </div>
+      <div class="field span-2">
+        <label>友善網址</label>
+        <div class="view-value" data-field="friendlyUrl">{{ c.friendlyUrl }}</div>
+      </div>
+      <div class="field">
+        <label>原廠</label>
+        <div class="view-value" data-field="partner">
+          <a [routerLink]="['/partners', c.partnerPkid]">{{ c.partnerName }}</a>
+        </div>
+      </div>
+      <div class="field">
+        <label>課程群組</label>
+        <div class="view-value" data-field="courseGroup">
+          @if (c.courseGroupPkid) {
+            <a [routerLink]="['/course-groups', c.courseGroupPkid]">{{ c.courseGroupDescription }}</a>
+          } @else {
+            —
+          }
+        </div>
+      </div>
+      <div class="field">
+        <label>上架狀態</label>
+        <div class="view-value" data-field="publishStatus">
+          <a [routerLink]="['/publish-statuses', c.publishStatusPkid]">{{ c.publishStatusDescription }}</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="page-card">
+    <h2>上架與價格</h2>
+    <div class="grid">
+      <div class="field">
+        <label>上架日期</label>
+        <div class="view-value" data-field="scheduleOn">{{ c.scheduleOn | date: 'yyyy/MM/dd' }}</div>
+      </div>
+      <div class="field">
+        <label>下架日期</label>
+        <div class="view-value" data-field="scheduleOff">{{ c.scheduleOff | date: 'yyyy/MM/dd' }}</div>
+      </div>
+      <div class="field">
+        <label>時數</label>
+        <div class="view-value" data-field="hour">{{ c.hour }}</div>
+      </div>
+      <div class="field">
+        <label>定價</label>
+        <div class="view-value" data-field="listPrice">{{ c.listPrice | number: '1.0-0' }}</div>
+      </div>
+      <div class="field">
+        <label>點數</label>
+        <div class="view-value" data-field="learningCredit">{{ c.learningCredit | number: '1.1-1' }}</div>
+      </div>
+      <div class="field">
+        <label>允許重聽</label>
+        <div class="view-value" data-field="canRepeat">{{ c.canRepeat ? '是' : '否' }}</div>
+      </div>
+      <div class="field span-all">
+        <label>相關認證</label>
+        <div class="view-value chips" data-field="certifications">
+          @for (ce of c.certifications; track ce.pkid) {
+            <p-chip [label]="ce.partnerName + ' ‧ ' + ce.title" />
+          } @empty {
+            —
+          }
+        </div>
+      </div>
+      <div class="field span-all">
+        <label>職務類別</label>
+        <div class="view-value chips" data-field="jobCategories">
+          @for (j of c.jobCategories; track j.pkid) {
+            <p-chip [label]="j.description" />
+          } @empty {
+            —
+          }
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="page-card">
+    <h2>課程內容</h2>
+    @for (f of textFields; track f.key) {
+      <div class="field">
+        <label>{{ f.label }}</label>
+        <div class="view-value long-text" [attr.data-field]="f.key">{{ text(c, f.key) ?? '—' }}</div>
+      </div>
+    }
+  </section>
+
+  <section class="page-card">
+    <h2>使用情形</h2>
+    <div class="grid">
+      <div class="field">
+        <label>對應課程問答</label>
+        <div class="view-value" data-field="courseFaqCount">{{ c.courseFaqCount }} 筆</div>
+      </div>
+      <div class="field">
+        <label>對應相關連結</label>
+        <div class="view-value" data-field="courseRelatedLinkCount">{{ c.courseRelatedLinkCount }} 筆</div>
+      </div>
+      <div class="field">
+        <label>對應熱門課程</label>
+        <div class="view-value" data-field="hotCourseCount">{{ c.hotCourseCount }} 筆</div>
+      </div>
+    </div>
+  </section>
+} @else if (notFound()) {
+  <section class="page-card muted">找不到此課程資料。</section>
+}
