@@ -1,0 +1,114 @@
+/* Global styles */
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  font-family: 'Noto Sans TC', 'Microsoft JhengHei', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  background: #f5f7fa;
+  color: #1e293b;
+}
+
+/* ---------- Page layout shared by feature pages ---------- */
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+
+  .title {
+    display: flex;
+    align-items: baseline;
+    gap: 1rem;
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 700;
+  }
+
+  .subtitle {
+    font-size: 0.95rem;
+    font-weight: 400;
+    color: #64748b;
+  }
+
+  .actions {
+    display: flex;
+    gap: 0.5rem;
+  }
+}
+
+.page-card {
+  background: #fff;
+  border: 1px solid #eef0f3;
+  border-radius: 10px;
+  padding: 1.25rem 1.25rem 1.5rem;
+  margin-bottom: 1rem;
+
+  > h2 {
+    margin: 0 0 0.75rem;
+    font-size: 1.2rem;
+    font-weight: 500;
+  }
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+
+  > label {
+    font-size: 0.85rem;
+    font-weight: 700;
+  }
+
+  .required::after {
+    content: ' *';
+    color: #ef4444;
+  }
+
+  .error {
+    color: #ef4444;
+    font-size: 0.8rem;
+  }
+}
+
+.view-value {
+  padding: 0.5rem 0;
+  min-height: 1.5rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.muted {
+  color: #94a3b8;
+}
+
+/* ---------- PrimeNG tweaks ---------- */
+
+.p-datatable .p-datatable-thead > tr > th {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* n-n multiselect: wrap chips instead of truncating */
+.chips-wrap .p-multiselect-label {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  white-space: normal;
+}
+
+.user-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}

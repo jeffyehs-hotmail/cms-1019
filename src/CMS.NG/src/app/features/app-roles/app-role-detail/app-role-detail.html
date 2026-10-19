@@ -1,0 +1,56 @@
+<div class="page-header">
+  <h1 class="title">檢視角色</h1>
+  <div class="actions">
+    <p-button label="返回" icon="pi pi-arrow-left" severity="secondary" (onClick)="back()" />
+    @if (role()) {
+      <p-button label="編輯" icon="pi pi-pencil" (onClick)="edit()" />
+    }
+  </div>
+</div>
+
+@if (role(); as r) {
+  <section class="page-card">
+    <h2>角色資料</h2>
+    <div class="field">
+      <label>主代碼</label>
+      <div class="view-value" data-field="pkid">{{ r.pkid }}</div>
+    </div>
+    <div class="field">
+      <label>角色代碼</label>
+      <div class="view-value" data-field="roleId">{{ r.roleId }}</div>
+    </div>
+    <div class="field">
+      <label>角色名稱</label>
+      <div class="view-value" data-field="roleName">{{ r.roleName }}</div>
+    </div>
+    <div class="field">
+      <label>權限等級</label>
+      <div class="view-value" data-field="permissionLevel">{{ r.permissionLevel }}</div>
+    </div>
+    <div class="field">
+      <label>描述</label>
+      <div class="view-value" data-field="description">
+        @if (r.description) {
+          {{ r.description }}
+        } @else {
+          <span class="muted">—</span>
+        }
+      </div>
+    </div>
+  </section>
+
+  <section class="page-card">
+    <h2>使用者 <span class="muted">({{ r.users.length }})</span></h2>
+    @if (r.users.length) {
+      <div class="user-chips">
+        @for (u of r.users; track u.userId) {
+          <p-chip [label]="u.userName + ' (' + u.userId + ')'" icon="pi pi-user" />
+        }
+      </div>
+    } @else {
+      <span class="muted">尚未指派使用者</span>
+    }
+  </section>
+} @else if (notFound()) {
+  <section class="page-card muted">找不到此角色資料。</section>
+}
