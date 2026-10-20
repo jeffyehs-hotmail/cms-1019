@@ -49,4 +49,18 @@ public class FakeLookupRepository(
             .OrderBy(c => c.CourseId, StringComparer.Ordinal)
             .Select(c => new CourseLookup { Pkid = c.Pkid, CourseId = c.CourseId, Title = c.Title })
             .ToList();
+
+    public Task<IEnumerable<TrainingCenterLookup>> GetTrainingCentersAsync()
+        => Task.FromResult<IEnumerable<TrainingCenterLookup>>(FakeFeaturedPromoItemRepository.TrainingCenters.ToList());
+
+    public Task<IEnumerable<PromotionLookup>> SearchPromotionsAsync(string? keyword, int take)
+    {
+        var kw = keyword?.Trim() ?? "";
+        return Task.FromResult<IEnumerable<PromotionLookup>>(FakeFeaturedPromoItemRepository.Promotions
+            .Where(p => kw.Length == 0 || p.PromoCode.Contains(kw, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(p => string.Equals(p.PromoCode, kw, StringComparison.OrdinalIgnoreCase) ? 0 : 1)
+            .ThenByDescending(p => p.Pkid)
+            .Take(take)
+            .ToList());
+    }
 }

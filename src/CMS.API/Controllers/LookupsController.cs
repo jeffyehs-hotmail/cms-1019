@@ -36,6 +36,15 @@ public class LookupsController(ILookupRepository repo) : ControllerBase
     public async Task<ActionResult<IEnumerable<JobCategoryLookup>>> GetJobCategories()
         => Ok(await repo.GetJobCategoriesAsync());
 
+    [HttpGet("training-centers")]
+    public async Task<ActionResult<IEnumerable<TrainingCenterLookup>>> GetTrainingCenters()
+        => Ok(await repo.GetTrainingCentersAsync());
+
+    /// <summary>PromoCode autocomplete for FeaturedPromoItem (max 20 rows).</summary>
+    [HttpGet("promotions")]
+    public async Task<ActionResult<IEnumerable<PromotionLookup>>> SearchPromotions([FromQuery] string? keyword)
+        => Ok(await repo.SearchPromotionsAsync(keyword, 20));
+
     [HttpGet("courses")]
     public async Task<ActionResult<IEnumerable<CourseLookup>>> GetCourses()
         => Ok(await repo.GetCoursesAsync());

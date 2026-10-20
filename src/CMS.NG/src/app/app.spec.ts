@@ -35,13 +35,24 @@ describe('App', () => {
     fixture.detectChanges();
     const el = fixture.nativeElement as HTMLElement;
 
-    expect(el.querySelectorAll('.nav-items').length).toBe(2);
+    expect(el.querySelectorAll('.nav-items').length).toBe(3);
     (el.querySelector('.nav-group') as HTMLButtonElement).click();
     fixture.detectChanges();
 
-    // Only the clicked group (系統管理 Admin) collapses; 課程管理 Course stays open.
+    // Only the clicked group (系統管理 Admin) collapses; 首頁 Home and 課程管理 Course stay open.
     const remaining = el.querySelectorAll('.nav-items');
-    expect(remaining.length).toBe(1);
-    expect(remaining[0].textContent).toContain('原廠 Partner');
+    expect(remaining.length).toBe(2);
+    expect(remaining[0].textContent).toContain('上稿作業 FeaturedPromoItem');
+    expect(remaining[1].textContent).toContain('原廠 Partner');
+  });
+
+  it('renders the 首頁 Home > 上稿作業 FeaturedPromoItem sidebar entry', () => {
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+
+    const link = el.querySelector('a[href="/featured-promo-items"]') as HTMLAnchorElement;
+    expect(link.textContent).toContain('上稿作業 FeaturedPromoItem');
+    expect(el.querySelectorAll('.nav-group')[1].textContent).toContain('首頁 Home');
   });
 });

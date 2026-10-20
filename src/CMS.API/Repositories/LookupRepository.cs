@@ -14,6 +14,10 @@ public interface ILookupRepository
     Task<IEnumerable<CertificationLookup>> GetCertificationsAsync();
     Task<IEnumerable<JobCategoryLookup>> GetJobCategoriesAsync();
     Task<IEnumerable<CourseLookup>> GetCoursesAsync();
+    Task<IEnumerable<TrainingCenterLookup>> GetTrainingCentersAsync();
+
+    /// <summary>Promotions whose PromoCode contains the keyword (exact match first, then newest); latest ones when blank.</summary>
+    Task<IEnumerable<PromotionLookup>> SearchPromotionsAsync(string? keyword, int take);
 }
 
 public class LookupRepository(IDbConnectionFactory db) : ILookupRepository
@@ -77,5 +81,26 @@ public class LookupRepository(IDbConnectionFactory db) : ILookupRepository
         using var conn = await db.OpenAsync();
         return await conn.QueryAsync<CourseLookup>(
             "SELECT pkid, CourseId, Title FROM Course ORDER BY CourseId");
+    }
+
+    public async Task<IEnumerable<TrainingCenterLookup>> GetTrainingCentersAsync()
+    {
+        using var conn = await db.OpenAsync();
+        return await conn.QueryAsync<TrainingCenterLookup>(
+            "SELECT pkid, Name FROM TrainingCenter ORDER BY DisplayOrder, pkid");
+    }
+
+    public async Task<IEnumerable<PromotionLookup>> SearchPromotionsAsync(string? keyword, int take)
+    {
+        var kw = keyword?.Trim() ?? "";
+        // PromoCodes contain '_' (e.g. 20251204_SkillTrainAI), a LIKE wildcard — match it literally.
+        var escaped = kw.Replace("[", "[[]").Replace("%", "[%]").Replace("_", "[_]");
+        using var conn = await db.OpenAsync();
+        return await conn.QueryAsync<PromotionLookup>("""
+            SELECT TOP (@take) pkid, PromoCode, Topic, Description
+            FROM Promotion2
+            WHERE @kw = N'' OR PromoCode LIKE @like
+            ORDER BY CASE WHEN PromoCode = @kw THEN 0 ELSE 1 END, pkid DESC
+            """, new { take, kw, like = $"%{escaped}%" });
     }
 }

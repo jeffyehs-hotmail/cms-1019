@@ -81,4 +81,21 @@ describe('LookupService', () => {
     expect(req.request.method).toBe('GET');
     req.flush(courses);
   });
+
+  it('getTrainingCenters() GETs /lookups/training-centers', () => {
+    const centers = [{ pkid: 1, name: '台北' }];
+    service.getTrainingCenters().subscribe((rows) => expect(rows).toEqual(centers));
+    const req = http.expectOne(`${environment.apiUrl}/lookups/training-centers`);
+    expect(req.request.method).toBe('GET');
+    req.flush(centers);
+  });
+
+  it('searchPromotions() GETs /lookups/promotions with the trimmed keyword', () => {
+    const promos = [{ pkid: 3443, promoCode: '20260313_OpenShift', topic: 't', description: 'd' }];
+    service.searchPromotions(' Open ').subscribe((rows) => expect(rows).toEqual(promos));
+    const req = http.expectOne((r) => r.url === `${environment.apiUrl}/lookups/promotions`);
+    expect(req.request.method).toBe('GET');
+    expect(req.request.params.get('keyword')).toBe('Open');
+    req.flush(promos);
+  });
 });

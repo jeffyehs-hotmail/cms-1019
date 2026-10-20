@@ -12,6 +12,20 @@ export interface AppRoleLookup {
   roleName: string;
 }
 
+/** Slim TrainingCenter from GET /api/lookups/training-centers (ordered by DisplayOrder). */
+export interface TrainingCenterLookup {
+  pkid: number;
+  name: string;
+}
+
+/** Promotion2 match from GET /api/lookups/promotions?keyword= (PromoCode autocomplete). */
+export interface PromotionLookup {
+  pkid: number;
+  promoCode: string;
+  topic: string;
+  description: string;
+}
+
 /** Slim PublishStatus from GET /api/lookups/publish-statuses (ordered by pkid). */
 export interface PublishStatusLookup {
   pkid: number;

@@ -1,4 +1,4 @@
-import { parseIsoDate, toIsoDate } from './date.util';
+import { addDays, parseIsoDate, startOfWeek, toIsoDate } from './date.util';
 
 describe('date.util', () => {
   it('toIsoDate uses local components (no UTC shift at local midnight)', () => {
@@ -23,5 +23,18 @@ describe('date.util', () => {
 
   it('round-trips', () => {
     expect(toIsoDate(parseIsoDate('2099-12-31')!)).toBe('2099-12-31');
+  });
+
+  it('addDays crosses month boundaries at local midnight', () => {
+    expect(toIsoDate(addDays(new Date(2026, 2, 30, 15, 0), 3))).toBe('2026-04-02');
+    expect(toIsoDate(addDays(new Date(2026, 2, 1), -1))).toBe('2026-02-28');
+    expect(addDays(new Date(2026, 2, 30, 15, 0), 0).getHours()).toBe(0);
+  });
+
+  it('startOfWeek returns the Monday (Sunday belongs to the previous Monday)', () => {
+    expect(toIsoDate(startOfWeek(new Date(2026, 2, 16)))).toBe('2026-03-16'); // Mon
+    expect(toIsoDate(startOfWeek(new Date(2026, 2, 18)))).toBe('2026-03-16'); // Wed
+    expect(toIsoDate(startOfWeek(new Date(2026, 2, 22)))).toBe('2026-03-16'); // Sun
+    expect(toIsoDate(startOfWeek(new Date(2026, 2, 23)))).toBe('2026-03-23'); // next Mon
   });
 });

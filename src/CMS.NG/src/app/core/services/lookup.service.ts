@@ -1,4 +1,4 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '@env/environment';
@@ -10,7 +10,9 @@ import {
   CourseLookup,
   JobCategoryLookup,
   PartnerLookup,
+  PromotionLookup,
   PublishStatusLookup,
+  TrainingCenterLookup,
 } from '../models/lookup.model';
 
 @Injectable({ providedIn: 'root' })
@@ -48,5 +50,15 @@ export class LookupService {
 
   getCourses(): Observable<CourseLookup[]> {
     return this.http.get<CourseLookup[]>(`${this.baseUrl}/courses`);
+  }
+
+  getTrainingCenters(): Observable<TrainingCenterLookup[]> {
+    return this.http.get<TrainingCenterLookup[]>(`${this.baseUrl}/training-centers`);
+  }
+
+  /** PromoCode autocomplete (server returns at most 20, exact match first). */
+  searchPromotions(keyword: string): Observable<PromotionLookup[]> {
+    const params = new HttpParams().set('keyword', keyword.trim());
+    return this.http.get<PromotionLookup[]>(`${this.baseUrl}/promotions`, { params });
   }
 }
