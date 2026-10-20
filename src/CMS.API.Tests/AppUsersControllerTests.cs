@@ -302,6 +302,70 @@ public class AppUsersControllerTests : IDisposable
         Assert.Equal(HttpStatusCode.NotFound, res.StatusCode);
     }
 
+    [Fact]
+    public async Task Delete_WithAgentTokenUsage_Returns409()
+    {
+        _factory.AppUsers.SetAgentTokenUsageCount("alice", 3);
+
+        var res = await _client.DeleteAsync($"{Url}/1");
+
+        Assert.Equal(HttpStatusCode.Conflict, res.StatusCode);
+        Assert.Contains("3 筆 Token 用量", await MessageOf(res));
+        Assert.NotNull(_factory.AppUsers.Find(1));
+    }
+
+    // ---------- Agent token ----------
+
+    [Fact]
+    public async Task RegenerateAgentToken_ReturnsTokenOnce_AndStoresOnlyItsHash()
+    {
+        var res = await _client.PostAsync($"{Url}/1/regenerate-agent-token", null);
+        var body = await res.Content.ReadFromJsonAsync<AgentTokenResponse>();
+
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+        Assert.Matches("^cms_at_[A-Za-z0-9_-]{43}$", body!.Token);
+        Assert.Equal(AgentTokenHasher.Hash(body.Token), _factory.AppUsers.Find(1)!.AgentTokenHash);
+
+        var user = await _client.GetStringAsync($"{Url}/1");
+        Assert.DoesNotContain(body.Token, user);
+        Assert.DoesNotContain(AgentTokenHasher.Hash(body.Token), user);
+        Assert.Contains("\"hasAgentToken\":true", user);
+    }
+
+    [Fact]
+    public async Task RegenerateAgentToken_ReplacesTheOldToken()
+    {
+        var first = (await (await _client.PostAsync($"{Url}/1/regenerate-agent-token", null))
+            .Content.ReadFromJsonAsync<AgentTokenResponse>())!.Token;
+        var second = (await (await _client.PostAsync($"{Url}/1/regenerate-agent-token", null))
+            .Content.ReadFromJsonAsync<AgentTokenResponse>())!.Token;
+
+        Assert.NotEqual(first, second);
+        Assert.Null(_factory.AppUsers.FindActiveUserIdByAgentTokenHash(AgentTokenHasher.Hash(first)));
+        Assert.Equal("alice", _factory.AppUsers.FindActiveUserIdByAgentTokenHash(AgentTokenHasher.Hash(second)));
+    }
+
+    [Fact]
+    public async Task RevokeAgentToken_ClearsTheHash()
+    {
+        await _client.PostAsync($"{Url}/1/regenerate-agent-token", null);
+
+        var res = await _client.PostAsync($"{Url}/1/revoke-agent-token", null);
+
+        Assert.Equal(HttpStatusCode.NoContent, res.StatusCode);
+        Assert.Null(_factory.AppUsers.Find(1)!.AgentTokenHash);
+        Assert.False((await _client.GetFromJsonAsync<AppUser>($"{Url}/1"))!.HasAgentToken);
+    }
+
+    [Theory]
+    [InlineData("regenerate-agent-token")]
+    [InlineData("revoke-agent-token")]
+    public async Task AgentTokenActions_NotFound_Return404(string action)
+    {
+        var res = await _client.PostAsync($"{Url}/999/{action}", null);
+        Assert.Equal(HttpStatusCode.NotFound, res.StatusCode);
+    }
+
     // ---------- Lookup ----------
 
     [Fact]

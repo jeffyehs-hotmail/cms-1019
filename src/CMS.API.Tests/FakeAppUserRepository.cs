@@ -28,6 +28,22 @@ public class FakeAppUserRepository : IAppUserRepository
         public required AppUser User { get; init; }
         public List<string> RoleIds { get; set; } = [];
         public string PasswordHash { get; set; } = string.Empty;
+        public string? AgentTokenHash { get; set; }
+
+        /// <summary>Stand-in for the AgentTokenUsage FK count (tests set it to exercise the delete guard).</summary>
+        public int AgentTokenUsageCount { get; set; }
+    }
+
+    /// <summary>Active user owning the token hash (used by FakeAgentTokenUsageRepository).</summary>
+    public string? FindActiveUserIdByAgentTokenHash(string tokenHash)
+    {
+        lock (_lock) return _rows.FirstOrDefault(r => r.AgentTokenHash == tokenHash && r.User.IsActive)?.User.UserId;
+    }
+
+    /// <summary>Test helper: set the AgentTokenUsage count for a user.</summary>
+    public void SetAgentTokenUsageCount(string userId, int count)
+    {
+        lock (_lock) _rows.First(r => r.User.UserId == userId).AgentTokenUsageCount = count;
     }
 
     public FakeAppUserRepository()
@@ -55,6 +71,8 @@ public class FakeAppUserRepository : IAppUserRepository
         IsActive = row.User.IsActive,
         PasswordUpdatedTime = row.User.PasswordUpdatedTime,
         RoleCount = row.RoleIds.Count,
+        HasAgentToken = row.AgentTokenHash is not null,
+        AgentTokenUsageCount = row.AgentTokenUsageCount,
         Roles = withRoles
             ? Roles.Where(r => row.RoleIds.Contains(r.RoleId, StringComparer.OrdinalIgnoreCase)).OrderBy(r => r.RoleId).ToList()
             : []
@@ -150,6 +168,17 @@ public class FakeAppUserRepository : IAppUserRepository
             if (row is null) return Task.FromResult(false);
             row.PasswordHash = passwordHash;
             row.User.PasswordUpdatedTime = null;
+            return Task.FromResult(true);
+        }
+    }
+
+    public Task<bool> SetAgentTokenHashAsync(int pkid, string? tokenHash)
+    {
+        lock (_lock)
+        {
+            var row = _rows.FirstOrDefault(r => r.User.Pkid == pkid);
+            if (row is null) return Task.FromResult(false);
+            row.AgentTokenHash = tokenHash;
             return Task.FromResult(true);
         }
     }

@@ -1,5 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { HttpErrorResponse } from '@angular/common/http';
+import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { Router, provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { Confirmation, ConfirmationService, MessageService } from 'primeng/api';
@@ -20,6 +21,8 @@ describe('AppUserDetail', () => {
     isActive: true,
     passwordUpdatedTime: null,
     roleCount: 2,
+    hasAgentToken: false,
+    agentTokenUsageCount: 0,
     roles: [
       { pkid: 1, roleId: 'Admin', roleName: 'Administrator' },
       { pkid: 2, roleId: 'User', roleName: 'User' },
@@ -36,14 +39,22 @@ describe('AppUserDetail', () => {
   const text = (el: HTMLElement, f: string) => el.querySelector(`[data-field="${f}"]`)?.textContent?.trim();
 
   beforeEach(async () => {
-    service = jasmine.createSpyObj<AppUserService>('AppUserService', ['getById', 'resetPassword']);
+    service = jasmine.createSpyObj<AppUserService>('AppUserService', [
+      'getById',
+      'resetPassword',
+      'regenerateAgentToken',
+      'revokeAgentToken',
+    ]);
     service.getById.and.returnValue(of(user));
     service.resetPassword.and.returnValue(of(undefined));
+    service.regenerateAgentToken.and.returnValue(of({ token: 'cms_at_new' }));
+    service.revokeAgentToken.and.returnValue(of(undefined));
 
     await TestBed.configureTestingModule({
       imports: [AppUserDetail],
       providers: [
         provideRouter([]),
+        provideNoopAnimations(),
         MessageService,
         ConfirmationService,
         { provide: AppUserService, useValue: service },
@@ -135,5 +146,95 @@ describe('AppUserDetail', () => {
       jasmine.objectContaining({ severity: 'error', detail: '系統設定 appConfig 缺少 defaultPassword' }),
     );
     expect(fixture.componentInstance.resetting()).toBeFalse();
+  });
+
+  // ---------- Agent token ----------
+
+  const acceptConfirm = () =>
+    spyOn(confirmation, 'confirm').and.callFake((c: Confirmation) => {
+      c.accept?.();
+      return confirmation;
+    });
+
+  it('shows the agent token status and hides revoke without a token', () => {
+    const el = create();
+    expect(text(el, 'hasAgentToken')).toBe('未設定');
+    expect(el.querySelector('[data-action="revoke-agent-token"]')).toBeNull();
+
+    service.getById.and.returnValue(of({ ...user, hasAgentToken: true }));
+    const el2 = create();
+    expect(text(el2, 'hasAgentToken')).toBe('已設定');
+    expect(el2.querySelector('[data-action="revoke-agent-token"]')).not.toBeNull();
+  });
+
+  it('regenerating without an existing token skips the confirm and shows the token once', () => {
+    create('1');
+    const confirm = spyOn(confirmation, 'confirm');
+    service.getById.calls.reset();
+
+    fixture.componentInstance.confirmRegenerateAgentToken();
+    fixture.detectChanges();
+
+    expect(confirm).not.toHaveBeenCalled();
+    expect(service.regenerateAgentToken).toHaveBeenCalledOnceWith(1);
+    expect(service.getById).toHaveBeenCalledTimes(1);
+    const input = document.querySelector<HTMLInputElement>('[data-field="issuedToken"]');
+    expect(input?.value).toBe('cms_at_new');
+
+    fixture.componentInstance.closeTokenDialog();
+    fixture.detectChanges();
+    expect(fixture.componentInstance.issuedToken()).toBeNull();
+  });
+
+  it('regenerating an existing token asks for confirmation first', () => {
+    service.getById.and.returnValue(of({ ...user, hasAgentToken: true }));
+    create('1');
+    const confirm = spyOn(confirmation, 'confirm').and.callFake((c: Confirmation) => {
+      c.reject?.();
+      return confirmation;
+    });
+
+    fixture.componentInstance.confirmRegenerateAgentToken();
+
+    expect(confirm).toHaveBeenCalled();
+    expect(service.regenerateAgentToken).not.toHaveBeenCalled();
+  });
+
+  it('copyToken() writes the issued token to the clipboard', async () => {
+    create('1');
+    fixture.componentInstance.issuedToken.set('cms_at_new');
+    const write = spyOn(navigator.clipboard, 'writeText').and.resolveTo();
+    const add = spyOn(messages, 'add');
+
+    await fixture.componentInstance.copyToken();
+
+    expect(write).toHaveBeenCalledOnceWith('cms_at_new');
+    expect(add).toHaveBeenCalledWith(jasmine.objectContaining({ severity: 'success' }));
+  });
+
+  it('revoke clears the token after confirmation and reloads', () => {
+    service.getById.and.returnValue(of({ ...user, hasAgentToken: true }));
+    create('1');
+    acceptConfirm();
+    const add = spyOn(messages, 'add');
+
+    fixture.componentInstance.confirmRevokeAgentToken();
+
+    expect(service.revokeAgentToken).toHaveBeenCalledOnceWith(1);
+    expect(add).toHaveBeenCalledWith(jasmine.objectContaining({ severity: 'success' }));
+  });
+
+  it('shows the API message when regenerating fails', () => {
+    service.regenerateAgentToken.and.returnValue(
+      throwError(() => new HttpErrorResponse({ status: 404, error: { message: 'not here' } })),
+    );
+    create('1');
+    const add = spyOn(messages, 'add');
+
+    fixture.componentInstance.confirmRegenerateAgentToken();
+
+    expect(add).toHaveBeenCalledWith(jasmine.objectContaining({ severity: 'error', detail: 'not here' }));
+    expect(fixture.componentInstance.issuedToken()).toBeNull();
+    expect(fixture.componentInstance.tokenBusy()).toBeFalse();
   });
 });

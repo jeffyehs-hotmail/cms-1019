@@ -123,5 +123,12 @@ export const routes: Routes = [
         (m) => m.FeaturedPromoItemList,
       ),
   },
+  {
+    path: 'agent-token-usages',
+    loadComponent: () =>
+      import('./features/agent-token-usages/agent-token-usage-report/agent-token-usage-report').then(
+        (m) => m.AgentTokenUsageReport,
+      ),
+  },
   { path: '**', redirectTo: 'app-roles' },
 ];

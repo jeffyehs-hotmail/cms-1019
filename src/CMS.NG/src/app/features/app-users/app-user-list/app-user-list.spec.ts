@@ -23,6 +23,8 @@ describe('AppUserList', () => {
     isActive: true,
     passwordUpdatedTime: null,
     roleCount: 0,
+    hasAgentToken: false,
+    agentTokenUsageCount: 0,
     roles: [],
   };
   const alice: AppUser = { ...base, pkid: 1, userId: 'alice', userName: 'Alice', roleCount: 2 };

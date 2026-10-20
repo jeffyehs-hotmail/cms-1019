@@ -59,6 +59,59 @@
       <span class="muted">尚未指派角色</span>
     }
   </section>
+
+  <section class="page-card">
+    <h2>Agent Token <span class="muted">（Claude Code Token 用量回報）</span></h2>
+    <div class="field">
+      <label>狀態</label>
+      <div class="view-value" data-field="hasAgentToken">
+        @if (u.hasAgentToken) {
+          已設定
+        } @else {
+          <span class="muted">未設定</span>
+        }
+      </div>
+    </div>
+    <div class="token-actions">
+      <p-button
+        label="重新產生 Agent Token"
+        icon="pi pi-refresh"
+        severity="secondary"
+        [loading]="tokenBusy()"
+        (onClick)="confirmRegenerateAgentToken()"
+        data-action="regenerate-agent-token"
+      />
+      @if (u.hasAgentToken) {
+        <p-button
+          label="撤銷 Agent Token"
+          icon="pi pi-ban"
+          severity="danger"
+          [outlined]="true"
+          [disabled]="tokenBusy()"
+          (onClick)="confirmRevokeAgentToken()"
+          data-action="revoke-agent-token"
+        />
+      }
+    </div>
+  </section>
 } @else if (notFound()) {
   <section class="page-card muted">找不到此使用者資料。</section>
 }
+
+<p-dialog
+  header="Agent Token"
+  [modal]="true"
+  [visible]="!!issuedToken()"
+  (visibleChange)="$event || closeTokenDialog()"
+  [style]="{ width: '40rem' }"
+  [closable]="true"
+>
+  <p class="token-warning">請立即複製此 Token 並存入 <code>~/.claude/token-report.json</code>。關閉後將無法再次顯示。</p>
+  <div class="token-row">
+    <input pInputText type="text" readonly [value]="issuedToken() ?? ''" data-field="issuedToken" />
+    <p-button label="複製" icon="pi pi-copy" (onClick)="copyToken()" data-action="copy-token" />
+  </div>
+  <ng-template #footer>
+    <p-button label="關閉" severity="secondary" (onClick)="closeTokenDialog()" />
+  </ng-template>
+</p-dialog>

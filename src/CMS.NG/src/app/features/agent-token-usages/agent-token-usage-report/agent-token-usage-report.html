@@ -1,0 +1,128 @@
+<div class="page-header">
+  <h1 class="title">Token 用量 AgentTokenUsage <span class="subtitle">Claude Code 使用量（台北時間，USD 牌價估算）</span></h1>
+</div>
+
+<section class="page-card filter-bar">
+  <div class="field">
+    <label for="range">日期區間</label>
+    <p-datepicker
+      inputId="range"
+      [(ngModel)]="draft.range"
+      selectionMode="range"
+      dateFormat="yy-mm-dd"
+      [showIcon]="true"
+      [readonlyInput]="true"
+      appendTo="body"
+    />
+  </div>
+  <div class="field">
+    <label for="users">使用者</label>
+    <p-multiselect
+      inputId="users"
+      [(ngModel)]="draft.userIds"
+      [options]="userOptions()"
+      optionLabel="label"
+      optionValue="value"
+      placeholder="全部"
+      [filter]="true"
+      display="chip"
+      appendTo="body"
+    />
+  </div>
+  <div class="field">
+    <label for="projects">專案</label>
+    <p-multiselect
+      inputId="projects"
+      [(ngModel)]="draft.projects"
+      [options]="projects()"
+      placeholder="全部"
+      [filter]="true"
+      display="chip"
+      appendTo="body"
+    />
+  </div>
+  <div class="field">
+    <label for="models">模型</label>
+    <p-multiselect
+      inputId="models"
+      [(ngModel)]="draft.models"
+      [options]="models()"
+      placeholder="全部"
+      display="chip"
+      appendTo="body"
+    />
+  </div>
+  <div class="filter-actions">
+    <p-button label="搜尋" icon="pi pi-search" (onClick)="search()" data-action="search" />
+    <p-button label="本月" icon="pi pi-undo" severity="secondary" [outlined]="true" (onClick)="reset()" data-action="reset" />
+  </div>
+</section>
+
+<div class="table-card">
+  <p-table [value]="rows()" [loading]="loading()" [showGridlines]="true" [scrollable]="true">
+    <ng-template #header>
+      <tr>
+        <th>日期</th>
+        <th>使用者</th>
+        <th>專案</th>
+        <th>模型</th>
+        <th class="num">工作階段</th>
+        <th class="num">Input</th>
+        <th class="num">Cache write</th>
+        <th class="num">Cache read</th>
+        <th class="num">Token in</th>
+        <th class="num">Output</th>
+        <th class="num">成本 (USD)</th>
+      </tr>
+    </ng-template>
+
+    <ng-template #body let-r>
+      <tr data-row>
+        <td>{{ r.usageDate }}</td>
+        <td>{{ r.userName }} <span class="muted">({{ r.userId }})</span></td>
+        <td>{{ r.project }}</td>
+        <td>{{ r.model }}</td>
+        <td class="num">{{ r.sessionCount | number }}</td>
+        <td class="num">{{ r.inputTokens | number }}</td>
+        <td class="num">{{ cacheWrite(r) | number }}</td>
+        <td class="num">{{ r.cacheReadTokens | number }}</td>
+        <td class="num">{{ tokenIn(r) | number }}</td>
+        <td class="num">{{ r.outputTokens | number }}</td>
+        <td class="num" data-field="cost">
+          @if (r.cost !== null) {
+            {{ r.cost | number: '1.4-4' }}
+          }
+          @if (r.hasUnpricedRows) {
+            <p-tag value="未定價" severity="warn" />
+          }
+        </td>
+      </tr>
+    </ng-template>
+
+    <ng-template #footer>
+      @if (rows().length) {
+        <tr class="totals" data-totals>
+          <td colspan="4">合計</td>
+          <td class="num">{{ totals().sessionCount | number }}</td>
+          <td class="num">{{ totals().inputTokens | number }}</td>
+          <td class="num">{{ totals().cacheWriteTokens | number }}</td>
+          <td class="num">{{ totals().cacheReadTokens | number }}</td>
+          <td class="num">{{ totals().tokenInTokens | number }}</td>
+          <td class="num">{{ totals().outputTokens | number }}</td>
+          <td class="num" data-field="totalCost">
+            {{ totals().cost | number: '1.4-4' }}
+            @if (totals().hasUnpricedRows) {
+              <p-tag value="未定價" severity="warn" />
+            }
+          </td>
+        </tr>
+      }
+    </ng-template>
+
+    <ng-template #emptymessage>
+      <tr>
+        <td colspan="11" class="muted">此條件下沒有 Token 用量資料。</td>
+      </tr>
+    </ng-template>
+  </p-table>
+</div>

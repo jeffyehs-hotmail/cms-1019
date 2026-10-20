@@ -29,6 +29,8 @@ describe('AppUserForm', () => {
     isActive: false,
     passwordUpdatedTime: null,
     roleCount: 1,
+    hasAgentToken: false,
+    agentTokenUsageCount: 0,
     roles: [roles[0]],
   };
 

@@ -46,6 +46,17 @@ describe('App', () => {
     expect(remaining[1].textContent).toContain('原廠 Partner');
   });
 
+  it('renders the 系統管理 Admin > Token 用量 AgentTokenUsage sidebar entry last in the Admin group', () => {
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+
+    const adminLinks = el.querySelectorAll('.nav-items')[0].querySelectorAll('a');
+    const last = adminLinks[adminLinks.length - 1] as HTMLAnchorElement;
+    expect(last.textContent).toContain('Token 用量 AgentTokenUsage');
+    expect(last.getAttribute('href')).toBe('/agent-token-usages');
+  });
+
   it('renders the 首頁 Home > 上稿作業 FeaturedPromoItem sidebar entry', () => {
     const fixture = TestBed.createComponent(App);
     fixture.detectChanges();

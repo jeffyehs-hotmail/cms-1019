@@ -62,9 +62,29 @@ public class AppUsersController(IAppUserRepository repo) : ControllerBase
         return await repo.ResetPasswordAsync(id, hash) ? NoContent() : NotFound();
     }
 
+    /// <summary>Issues a new agent token (the old one stops working). The plain token is returned only here.</summary>
+    [HttpPost("{id:int}/regenerate-agent-token")]
+    public async Task<ActionResult<AgentTokenResponse>> RegenerateAgentToken(int id)
+    {
+        var token = AgentTokenHasher.Generate();
+        return await repo.SetAgentTokenHashAsync(id, AgentTokenHasher.Hash(token))
+            ? Ok(new AgentTokenResponse { Token = token })
+            : NotFound();
+    }
+
+    [HttpPost("{id:int}/revoke-agent-token")]
+    public async Task<IActionResult> RevokeAgentToken(int id)
+        => await repo.SetAgentTokenHashAsync(id, null) ? NoContent() : NotFound();
+
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
-        => await repo.DeleteAsync(id) ? NoContent() : NotFound();
+    {
+        var user = await repo.GetByIdAsync(id);
+        if (user is null) return NotFound();
+        if (user.AgentTokenUsageCount > 0)
+            return Conflict(new { message = $"使用者 '{user.UserId}' 已有 {user.AgentTokenUsageCount} 筆 Token 用量紀錄，無法刪除" });
+        return await repo.DeleteAsync(id) ? NoContent() : NotFound();
+    }
 
     private static void Normalize(AppUserRequest r)
     {

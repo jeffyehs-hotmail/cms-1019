@@ -37,6 +37,7 @@ builder.Services.AddScoped<ICourseRepository, CourseRepository>();
 builder.Services.AddScoped<IFeaturedPromoItemRepository, FeaturedPromoItemRepository>();
 builder.Services.AddScoped<ILookupRepository, LookupRepository>();
 builder.Services.AddScoped<IAuthRepository, AuthRepository>();
+builder.Services.AddScoped<IAgentTokenUsageRepository, AgentTokenUsageRepository>();
 builder.Services.AddSingleton(TimeProvider.System);
 
 var app = builder.Build();

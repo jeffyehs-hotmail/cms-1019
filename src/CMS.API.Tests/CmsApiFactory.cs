@@ -17,6 +17,9 @@ public class CmsApiFactory : WebApplicationFactory<Program>
     public FakeCourseRepository Courses { get; } = new();
     public FakeFeaturedPromoItemRepository FeaturedPromoItems { get; } = new();
     public FakeAuthRepository Auth { get; } = new();
+    public FakeAgentTokenUsageRepository AgentTokenUsages { get; }
+
+    public CmsApiFactory() => AgentTokenUsages = new FakeAgentTokenUsageRepository(AppUsers);
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -38,6 +41,8 @@ public class CmsApiFactory : WebApplicationFactory<Program>
             services.AddSingleton<IFeaturedPromoItemRepository>(FeaturedPromoItems);
             services.RemoveAll<IAuthRepository>();
             services.AddSingleton<IAuthRepository>(Auth);
+            services.RemoveAll<IAgentTokenUsageRepository>();
+            services.AddSingleton<IAgentTokenUsageRepository>(AgentTokenUsages);
             services.RemoveAll<ILookupRepository>();
             services.AddSingleton<ILookupRepository>(new FakeLookupRepository(PublishStatuses, Partners, CourseGroups, Courses));
         });

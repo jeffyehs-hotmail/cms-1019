@@ -186,7 +186,8 @@ export class AppUserList implements OnInit {
         this.messages.add({ severity: 'success', summary: '已刪除', detail: `使用者「${user.userId}」已刪除` });
         this.load();
       },
-      error: () => this.messages.add({ severity: 'error', summary: '錯誤', detail: '刪除失敗' }),
+      error: (err) =>
+        this.messages.add({ severity: 'error', summary: '錯誤', detail: err?.error?.message ?? '刪除失敗' }),
     });
   }
 }

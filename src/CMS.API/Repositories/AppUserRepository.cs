@@ -8,10 +8,12 @@ namespace CMS.API.Repositories;
 
 public class AppUserRepository(IDbConnectionFactory db) : IAppUserRepository
 {
-    // PasswordHash is intentionally never selected.
+    // PasswordHash / AgentTokenHash are intentionally never selected.
     private const string SelectSql = """
         SELECT u.pkid, u.UserId, u.UserName, u.IsActive, u.PasswordUpdatedTime,
-               (SELECT COUNT(*) FROM AppUserRole ur WHERE ur.UserId = u.UserId) AS RoleCount
+               (SELECT COUNT(*) FROM AppUserRole ur WHERE ur.UserId = u.UserId) AS RoleCount,
+               CAST(CASE WHEN u.AgentTokenHash IS NULL THEN 0 ELSE 1 END AS bit) AS HasAgentToken,
+               (SELECT COUNT(*) FROM AgentTokenUsage a WHERE a.UserId = u.UserId) AS AgentTokenUsageCount
         FROM AppUser u
         """;
 
@@ -141,6 +143,14 @@ public class AppUserRepository(IDbConnectionFactory db) : IAppUserRepository
         var rows = await conn.ExecuteAsync(
             "UPDATE AppUser SET PasswordHash = @passwordHash, PasswordUpdatedTime = NULL WHERE pkid = @pkid",
             new { pkid, passwordHash });
+        return rows > 0;
+    }
+
+    public async Task<bool> SetAgentTokenHashAsync(int pkid, string? tokenHash)
+    {
+        using var conn = await db.OpenAsync();
+        var rows = await conn.ExecuteAsync(
+            "UPDATE AppUser SET AgentTokenHash = @tokenHash WHERE pkid = @pkid", new { pkid, tokenHash });
         return rows > 0;
     }
 

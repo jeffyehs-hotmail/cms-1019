@@ -45,6 +45,7 @@ Read this before adding or changing an API feature (`src/CMS.API`, `src/CMS.API.
 - **"Today" on the server**: inject `TimeProvider` (registered as `TimeProvider.System`); tests override it with `WithWebHostBuilder` + `ConfigureTestServices` (a `FixedTimeProvider`, e.g. JWT `iat`/`exp` in `AuthControllerTests`).
 - **LIKE keywords** on columns that contain `_`/`%`/`[` (e.g. PromoCode): escape them (`[_]`, `[%]`, `[[]`). Fakes use `Contains`, so check the escaping in a DB smoke test.
 - **Reordering within a UNIQUE key** (e.g. FeaturedPromoItem slots): swap in one transaction through a temporary value (slot 0) so the index is never violated.
+- **New tables / columns** (no migrations exist): hand-write a re-runnable script in `database/` (`IF OBJECT_ID … IS NULL`, `SET QUOTED_IDENTIFIER ON` at the top) and apply it with `sqlcmd -i`. Never put a filtered index on an existing table: every INSERT/UPDATE from a connection with QUOTED_IDENTIFIER OFF (sqlcmd default, legacy tools) then fails (Msg 1934).
 - No `RowAuditWriter` exists yet; the `/crud` skill mentions it, so skip it.
 
 ## Tests (`src/CMS.API.Tests`)
