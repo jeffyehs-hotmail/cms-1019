@@ -6,9 +6,9 @@ Read this before adding or changing UI (`src/CMS.NG`).
 
 - Angular 20 standalone, no `.component` suffix (`app-role-list.ts` / class `AppRoleList`). Signals, `inject()`, `@if`/`@for`.
 - Feature folder `src/app/features/{kebab-plural}/`: `{table}-list/`, `{table}-detail/`, `{table}-form/`, `{table}.model.ts`, `{table}.service.ts`. (The `/crud` skill says `core/models` / `core/services`; ignore that.)
-- Shared: `core/services/lookup.service.ts`, `core/models/lookup.model.ts`, `core/utils/session-state.ts` (`readSession`/`writeSession`), `core/utils/date.util.ts` (`toIsoDate`/`parseIsoDate` use local components; never `toISOString()` for `date` columns).
+- Shared: `core/components/qr-code/` (see Custom pages below), `core/services/lookup.service.ts`, `core/models/lookup.model.ts`, `core/utils/session-state.ts` (`readSession`/`writeSession`), `core/utils/date.util.ts` (`toIsoDate`/`parseIsoDate` use local components; never `toISOString()` for `date` columns).
 - Lazy routes in `app.routes.ts`: `/{plural}`, `/{plural}/new`, `/{plural}/:id`, `/{plural}/:id/edit`. Route **and query** params arrive as `input()`s (`withComponentInputBinding`).
-- Sidebar: `navGroups` in `app.ts` (`app.html` loops over it). Groups: 系統管理 Admin, 課程管理 Course. `app.spec.ts` checks the group count and the first Admin links (使用者 AppUser, then 角色 AppRole); update it when adding a group or reordering Admin.
+- Sidebar: `navGroups` in `app.ts` (`app.html` loops over it). Groups in order: 系統管理 Admin, 首頁 Home, 課程管理 Course. `app.spec.ts` checks the group count, the first Admin links (使用者 AppUser, then 角色 AppRole) and which groups stay open after collapsing Admin; update it when adding a group or reordering.
 - API base URL: `src/environments/environment*.ts`, imported as `@env/environment`. No dev proxy.
 - Theme: Aura + emerald + zh-TW in `app/theme.ts`. `MessageService`/`ConfirmationService` are provided app-wide; `<p-toast>`/`<p-confirmDialog>` are in `app.html`.
 - Shared CSS (`src/styles.scss`): `.page-header` (`.title`, `.subtitle`, `.actions`), `.page-card`, `.field` (`.required`, `.error`), `.view-value`, `.chips-wrap`, `.muted`.
@@ -27,6 +27,13 @@ Read this before adding or changing UI (`src/CMS.NG`).
 - n-n: `p-multiselect` with `display="chip"`, `[maxSelectedLabels]="9999"`, `styleClass="chips-wrap"`.
 - Error toasts show `err.error?.message` with a generic fallback.
 
+## Custom (non-CRUD-template) pages
+
+- When the user supplies a UI spec with screenshots (e.g. `spec/custom/{Table}/`), follow the screenshots rather than the list/detail/form template. FeaturedPromoItem is the example: one route, PrimeNG `p-tabs` (tablist only, `(valueChange)`) for a filter, week navigation, an inline editor child component with `saved`/`cancelled` outputs.
+- `p-autocomplete` for picking an FK by its code: the control holds typed text until a suggestion is picked, so validate that the value is an object with a `pkid`; prefill related fields in `(onSelect)`. Test by `setValue(obj)` + calling the handler.
+- Week helpers: `startOfWeek` (Monday) and `addDays` in `core/utils/date.util.ts`.
+- Shared `core/components/qr-code/` (`<app-qr-code [text] [title] [filename?] [size?]>`): renders with the `qrcode` npm package via the injectable `QrCodeRenderer` (spy it in page specs: `spyOn(TestBed.inject(QrCodeRenderer), 'render').and.resolveTo()` then assert `args[1]`), and downloads a PNG named `{filename ?? title}.png` through a temporary `<a download>` (test with `spyOn(HTMLAnchorElement.prototype, 'click')`; a PNG data URL starts with `data:image/png;base64,iVBORw0KGgo`). The real render is async: `await new Promise(r => setTimeout(r, 0))` before asserting the canvas.
+
 ## Tests
 
 - Jasmine specs next to each file. Services: `HttpTestingController`. Components: `jasmine.createSpyObj` service mocks, `provideRouter([])`, `provideNoopAnimations()`, and provide `MessageService` / `ConfirmationService` explicitly.
@@ -38,3 +45,4 @@ Read this before adding or changing UI (`src/CMS.NG`).
 
 - Installing PrimeNG needs explicit `@angular/animations` and `@angular/cdk` (^20), or npm fails with ERESOLVE.
 - Initial-bundle budget is 1MB warn / 2MB error (PrimeNG theme ≈ 650kB).
+- `qrcode` (CommonJS) is listed in `allowedCommonJsDependencies` in `angular.json`; add other CJS libs there too, or the build warns.

@@ -42,6 +42,9 @@ Read this before adding or changing an API feature (`src/CMS.API`, `src/CMS.API.
 
 - 409 and business-rule 400s always return `{ message }` in Traditional Chinese; the frontend toasts `err.error.message`. DataAnnotations 400s are ProblemDetails (normally prevented by form validators).
 - Rules DataAnnotations can't express (date order, decimal scale, FK existence, whitespace-only after trim): a `ValidateAsync` helper in the controller → 400 `{ message }`. Mirror date-order rules as a form-group validator.
+- **"Today" on the server**: inject `TimeProvider` (registered as `TimeProvider.System`); tests override it with `WithWebHostBuilder` + `ConfigureTestServices`.
+- **LIKE keywords** on columns that contain `_`/`%`/`[` (e.g. PromoCode): escape them (`[_]`, `[%]`, `[[]`). Fakes use `Contains`, so check the escaping in a DB smoke test.
+- **Reordering within a UNIQUE key** (e.g. FeaturedPromoItem slots): swap in one transaction through a temporary value (slot 0) so the index is never violated.
 - No `RowAuditWriter` exists yet; the `/crud` skill mentions it, so skip it.
 
 ## Tests (`src/CMS.API.Tests`)

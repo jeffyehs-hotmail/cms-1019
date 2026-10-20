@@ -6,8 +6,12 @@ import { ConfirmationService, MessageService } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
 import { ChipModule } from 'primeng/chip';
 import { TooltipModule } from 'primeng/tooltip';
+import { QrCode } from '../../../core/components/qr-code/qr-code';
 import { Course, courseInUse } from '../course.model';
 import { CourseService } from '../course.service';
+
+/** Public course page on the website, encoded in the detail page QR code. */
+export const COURSE_SITE_URL = 'https://www.uuu.com.tw/Course/Show';
 
 /** Long-text fields shown in the 課程內容 card, in display order. */
 export const TEXT_FIELDS: { key: keyof Course; label: string }[] = [
@@ -23,7 +27,7 @@ export const TEXT_FIELDS: { key: keyof Course; label: string }[] = [
 
 @Component({
   selector: 'app-course-detail',
-  imports: [DatePipe, DecimalPipe, RouterLink, ButtonModule, ChipModule, TooltipModule],
+  imports: [DatePipe, DecimalPipe, RouterLink, ButtonModule, ChipModule, TooltipModule, QrCode],
   templateUrl: './course-detail.html',
   styleUrl: './course-detail.scss',
 })
@@ -50,6 +54,11 @@ export class CourseDetail implements OnInit {
         }
       },
     });
+  }
+
+  /** https://www.uuu.com.tw/Course/Show/{pkid}/{CourseId} */
+  courseUrl(c: Course): string {
+    return `${COURSE_SITE_URL}/${c.pkid}/${encodeURIComponent(c.courseId)}`;
   }
 
   text(c: Course, key: keyof Course): string | null {

@@ -50,6 +50,10 @@
         <label>友善網址</label>
         <div class="view-value" data-field="friendlyUrl">{{ c.friendlyUrl }}</div>
       </div>
+      <div class="field span-2 qr-field">
+        <label>QR Code <span class="muted">({{ courseUrl(c) }})</span></label>
+        <app-qr-code [text]="courseUrl(c)" [title]="c.courseId" />
+      </div>
       <div class="field">
         <label>原廠</label>
         <div class="view-value" data-field="partner">

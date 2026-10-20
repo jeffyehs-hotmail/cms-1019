@@ -50,4 +50,14 @@ Per-feature decisions that aren't obvious from the code. Read the section for a 
 - Filters: keyword (Title, OfficialTitle, CourseId, ProdCourseId, FriendlyUrl), partner / course group / publish status, ScheduleOn/Off ranges (inclusive), tri-state canRepeat. Sort `DisplayOrder ASC, pkid DESC`. Accepts `?partnerPkid=` / `?courseGroupPkid=` / `?publishStatusPkid=`.
 - New form defaults: ScheduleOn = today, ScheduleOff = Dec 31 of next year.
 - Lookups: `certifications` (`{ pkid, title, partnerName }`), `job-categories`, `courses` (`{ pkid, courseId, title }`).
-- Not built (from `spec/sample1.spec.md`): copy, QR code, print to PDF, CourseRelatedLink / CourseRecomm sub-panels.
+- Detail page 基本資料 shows a QR code (`<app-qr-code>`) of the public page `https://www.uuu.com.tw/Course/Show/{pkid}/{CourseId}` (`COURSE_SITE_URL` in `course-detail.ts`; CourseId is URL-encoded), titled with the CourseId and downloadable as `{CourseId}.png`.
+- Not built (from `spec/sample1.spec.md`): copy, print to PDF, CourseRelatedLink / CourseRecomm sub-panels.
+
+## FeaturedPromoItem — 首頁 Home › 上稿作業 (`database/promotion.sql`, `spec/custom/FeaturedPromoItem/`)
+- Custom UI from screenshots, not the list/detail/form template: one route `/featured-promo-items`. Training-center tabs (`lookups/training-centers`, by DisplayOrder: 台北/新竹/台中/高雄/線上研討會; pkids 1,2,3,5,54), a Monday–Sunday week navigator, and per day 3 slot rows with +/− (move down/up), 編輯, 複製/貼上, 刪除. The editor opens inline in the row (`FeaturedPromoItemForm`, used for Edit, New and Paste).
+- PK `pkid` int IDENTITY. FKs `TrainingCenter_pkid` (smallint), `Promotion_pkid` → `Promotion2` (JOINed for `TrainingCenterName`, `PromoCode`). **UNIQUE (ScheduleOn, TrainingCenter_pkid, Slot)** → API 409 `{ message }`. Slot is 1..3 (`MaxSlot`).
+- **No GET-all** (31.7k rows since 2019). `POST /query { trainingCenterPkid?, weekOf? }` returns the Mon–Sun week containing `weekOf` (default: this week, via `TimeProvider`), ordered by date, center DisplayOrder, slot.
+- `POST /{id}/move-up` / `move-down` swap with the neighbor slot (or just move into an empty one) through slot 0 in a transaction; 400 at the edges.
+- PromoCode autocomplete: `GET /api/lookups/promotions?keyword=` (top 20, exact match first, then newest; `_` escaped). Picking one sets `promotionPkid` and prefills Topic/Description from `Promotion2` (both still editable).
+- Copy keeps `{ promotionPkid, promoCode, topic, description }` in a component signal (not persisted); Paste is only offered on empty slots and opens a prefilled New form. Selected tab and week are kept in session (`featured-promo-item-list-filters`).
+- Smoke-test in far-future dates (e.g. 2099) on center 54, and check for leftover `Slot = 0` rows.

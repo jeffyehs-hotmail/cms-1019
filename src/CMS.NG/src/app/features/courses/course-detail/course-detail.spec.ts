@@ -6,6 +6,8 @@ import { of, throwError } from 'rxjs';
 import { Confirmation, ConfirmationService, MessageService } from 'primeng/api';
 import { Course } from '../course.model';
 import { CourseService } from '../course.service';
+import { QrCode } from '../../../core/components/qr-code/qr-code';
+import { QrCodeRenderer } from '../../../core/components/qr-code/qr-code-renderer';
 import { CourseDetail } from './course-detail';
 
 describe('CourseDetail', () => {
@@ -68,6 +70,40 @@ describe('CourseDetail', () => {
     expect(text(el, 'canRepeat')).toBe('是');
     expect(text(el, 'outline')).toBe('第一章\n第二章');
     expect(text(el, 'material')).toBe('—');
+  });
+
+  describe('QR code (基本資料)', () => {
+    const qr = () => fixture.debugElement.query((d) => d.componentInstance instanceof QrCode);
+
+    it('encodes the public course URL built from pkid and CourseId', () => {
+      const render = spyOn(TestBed.inject(QrCodeRenderer), 'render').and.resolveTo();
+      const el = create();
+
+      expect(render).toHaveBeenCalledTimes(1);
+      expect(render.calls.mostRecent().args[1]).toBe('https://www.uuu.com.tw/Course/Show/42/CCNP');
+      expect((qr().componentInstance as QrCode).text()).toBe('https://www.uuu.com.tw/Course/Show/42/CCNP');
+      expect(el.querySelector('.page-card .qr-field')).not.toBeNull();
+    });
+
+    it('shows CourseId as the QR code title', () => {
+      spyOn(TestBed.inject(QrCodeRenderer), 'render').and.resolveTo();
+      const el = create();
+      expect(el.querySelector('[data-qr-title]')?.textContent?.trim()).toBe('CCNP');
+      expect((qr().componentInstance as QrCode).title()).toBe('CCNP');
+    });
+
+    it('download produces a PNG image named after the CourseId', async () => {
+      create();
+      await new Promise((r) => setTimeout(r, 0)); // real render finishes
+      fixture.detectChanges();
+      const click = spyOn(HTMLAnchorElement.prototype, 'click');
+
+      (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('[data-qr-download] button')!.click();
+
+      const a = click.calls.mostRecent().object as HTMLAnchorElement;
+      expect(a.download).toBe('CCNP.png');
+      expect(a.href).toContain('data:image/png;base64,iVBORw0KGgo');
+    });
   });
 
   it('links FK labels to the parent detail pages', () => {
