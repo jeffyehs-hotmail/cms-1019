@@ -5,10 +5,10 @@ Read this before adding or changing an API feature (`src/CMS.API`, `src/CMS.API.
 ## Structure
 
 - `Program.cs`: Swagger (Swashbuckle 7.2.0, always on), CORS for any loopback origin, Dapper `DateOnly`/`TimeOnly` type handlers, DI registrations. Ends with `public partial class Program {}` for `WebApplicationFactory`.
-- `Data/`: `IDbConnectionFactory` (`OpenAsync()`), type handlers. `Security/`: `PasswordHasher`.
+- `Data/`: `IDbConnectionFactory` (`OpenAsync()`), type handlers. `Security/`: `PasswordHasher`, `AccessTokenIssuer` (login JWT).
 - `Models/`: `{Table}.cs` (response), `{Table}Request.cs` (write DTO, DataAnnotations), `{Table}Query.cs` (filter DTO), `{Table}Lookup.cs`.
 - `Repositories/`: `I{Table}Repository` + `{Table}Repository`. Dapper only, all async. Multi-statement writes run in a transaction.
-- `Controllers/`: route `api/{kebab-plural}`; lookups in `LookupsController`/`LookupRepository` under `api/lookups/{kebab-plural}`.
+- `Controllers/`: route `api/{kebab-plural}`; lookups in `LookupsController`/`LookupRepository` under `api/lookups/{kebab-plural}`. Non-table endpoints get their own controller + repository (`AuthController` at `api/auth`, `IAuthRepository`).
 
 **Checklist:** model/request/query → repository interface + impl → register in `Program.cs` → controller → fake + tests.
 
@@ -42,7 +42,7 @@ Read this before adding or changing an API feature (`src/CMS.API`, `src/CMS.API.
 
 - 409 and business-rule 400s always return `{ message }` in Traditional Chinese; the frontend toasts `err.error.message`. DataAnnotations 400s are ProblemDetails (normally prevented by form validators).
 - Rules DataAnnotations can't express (date order, decimal scale, FK existence, whitespace-only after trim): a `ValidateAsync` helper in the controller → 400 `{ message }`. Mirror date-order rules as a form-group validator.
-- **"Today" on the server**: inject `TimeProvider` (registered as `TimeProvider.System`); tests override it with `WithWebHostBuilder` + `ConfigureTestServices`.
+- **"Today" on the server**: inject `TimeProvider` (registered as `TimeProvider.System`); tests override it with `WithWebHostBuilder` + `ConfigureTestServices` (a `FixedTimeProvider`, e.g. JWT `iat`/`exp` in `AuthControllerTests`).
 - **LIKE keywords** on columns that contain `_`/`%`/`[` (e.g. PromoCode): escape them (`[_]`, `[%]`, `[[]`). Fakes use `Contains`, so check the escaping in a DB smoke test.
 - **Reordering within a UNIQUE key** (e.g. FeaturedPromoItem slots): swap in one transaction through a temporary value (slot 0) so the index is never violated.
 - No `RowAuditWriter` exists yet; the `/crud` skill mentions it, so skip it.

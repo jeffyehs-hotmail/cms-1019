@@ -18,6 +18,12 @@ Per-feature decisions that aren't obvious from the code. Read the section for a 
 - No password field in the form (new mode shows a default-password hint). `PasswordUpdatedTime` is displayed as returned (no `'Z'`); NULL shows 尚未變更（預設密碼）.
 - Data: seed user `admin@example.com` (pkid 14, role `Admin`), roles `Admin`/`User`. The default password lives only in `SysConfig` (never copy it into the repo, which is public).
 
+## Auth (login) — no UI yet (`database/admin.sql`)
+- `POST /api/auth/login` `{ userId, password }` → 200 `{ userId, userName, accessToken }`. `AuthController` + `IAuthRepository` (own repo; `LoginUser` is the only model holding `PasswordHash`, never returned).
+- Checks: UserId **exact** (the DB collation `Chinese_Taiwan_Stroke_CI_AS` is case-insensitive and `=` ignores trailing spaces, so the controller re-compares ordinally), `IsActive = 1`, `PasswordHash` = SHA-256 hex (constant-time, hex case ignored). Any failure → 401 `{ message: "帳號或密碼錯誤" }`, identical for every reason.
+- JWT (`Security/AccessTokenIssuer`, `Microsoft.IdentityModel.JsonWebTokens`): HS256 signed with `SysConfig[appConfig].symmetricSecurityKey` (UTF-8 bytes, read per request, must be >= 32 bytes; else 500 `{ message }`). Claims `sub` = UserId, `name` = UserName, `role` (array, one per `AppUserRole.RoleId`, omitted when none), `jti`; `iat`/`nbf` = now (`TimeProvider`), `exp` = +24h. No issuer/audience.
+- Deferred: no JwtBearer validation middleware / `[Authorize]` on the other controllers yet, no frontend login page, no refresh token.
+
 ## PublishStatus — 系統管理 Admin › 發布狀態 (`database/admin.sql`, `spec/admin/PublishStatus.md`)
 - PK `pkid` **tinyint, not IDENTITY** (C# `byte`): entered on create (1–255, duplicate → 409), disabled on edit.
 - Referenced by `Course`, `Promotion2`: `CourseCount`/`Promotion2Count`; in use → DELETE 409.

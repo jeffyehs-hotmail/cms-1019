@@ -47,10 +47,11 @@ cd src/CMS.NG && npx ng build               # production build (checks budgets)
 Smoke tests write real rows into the live `CMS` database.
 
 - Use ASCII `ZZ…`/`zz…` keys for string-keyed tables and far-future dates (e.g. 2099) for date-keyed ones (FeaturedPromoItem: training center 54).
+- Login (`POST api/auth/login`): real passwords are unknown, so insert temporary `ZZ…` `AppUser` rows with `PasswordHash` = lowercase hex SHA-256 of a test password (`node -e` + `crypto`) plus `AppUserRole` rows, then delete both.
 - Delete the rows afterwards and verify with sqlcmd, including side tables (`CourseRecomm`, `AppUserRole`, `CourseInCertification`, `CourseJobCategories`) and temporary values (FeaturedPromoItem `Slot = 0`).
 
 ## Tooling quirks
 
 - No real Python: `python` is the Microsoft Store stub. Use the Edit/Write tools or `node`; `jq` is available.
-- Write C#/TS source with the Write tool. Long bash heredocs break, and in `node -e "…"` bash eats backticks and `${…}`. A single-quoted `node -e '…'` with `\x27` for apostrophes is safe for small scripted edits.
+- Write C#/TS source with the Write tool. Long bash heredocs break (a multi-file heredoc batch fails with `unexpected EOF`), and in `node -e "…"` bash eats backticks and `${…}`. A single-quoted `node -e '…'` with `\x27` for apostrophes is safe for small scripted edits.
 - Claude's browser tools are not always available in a session; when they aren't, say the UI was verified by specs and build only.

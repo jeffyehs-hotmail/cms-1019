@@ -26,7 +26,7 @@ cd src/CMS.NG && npx ng build               # production build (checks budgets)
 
 - Backend per table: `Models/{Table}.cs` + `{Table}Request.cs` + `{Table}Query.cs` → `Repositories/I{Table}Repository` + impl (Dapper, async) → DI in `Program.cs` → `Controllers/{Table}sController` at `api/{kebab-plural}`; lookups at `api/lookups/{kebab-plural}`. JSON is camelCase.
 - Frontend per table: `src/app/features/{kebab-plural}/` with list/detail/form folders, `{table}.model.ts`, `{table}.service.ts`. No `.component` suffix. Signals, `inject()`, `@if`/`@for`. Lazy routes in `app.routes.ts`; sidebar in `navGroups` (`app.ts`). Shared UI in `core/components/`.
-- 409 and business-rule 400 responses carry `{ message }` (Traditional Chinese); the frontend toasts it.
+- 409, business-rule 400 and auth 401 responses carry `{ message }` (Traditional Chinese); the frontend toasts it. Login failures use one generic 401 message whatever the reason.
 - Tests are always written: backend via `CmsApiFactory` with in-memory fakes (no Moq, no DB); frontend Jasmine specs next to each file.
 - When `/crud` disagrees with this repo (`core/models` paths, Moq, `RowAuditWriter`/`RowAuditBadgeComponent`), follow this repo. After building a feature, add notes to `docs/claude/features.md` and a row below.
 
@@ -36,6 +36,7 @@ cd src/CMS.NG && npx ng build               # production build (checks budgets)
 |---|---|---|
 | AppRole | 系統管理 › 角色 | string PK `RoleId` + `pkid` route key; n-n users |
 | AppUser | 系統管理 › 使用者 | string PK `UserId`; `PasswordHash` backend-only; reset-password endpoint; n-n roles |
+| Auth | (API only) | `POST api/auth/login` → profile + 24h HS256 JWT, key from SysConfig appConfig; exact UserId, generic 401 |
 | PublishStatus | 系統管理 › 發布狀態 | tinyint non-IDENTITY PK |
 | Partner | 課程管理 › 原廠 | smallint IDENTITY; 5 child counts incl. Seminar (no FK) |
 | CourseGroup | 課程管理 › 課程群組 | smallint IDENTITY; minimal template |
