@@ -137,12 +137,12 @@ public class AppUserRepository(IDbConnectionFactory db) : IAppUserRepository
         return true;
     }
 
-    public async Task<bool> ResetPasswordAsync(int pkid, string passwordHash)
+    public async Task<bool> ResetPasswordAsync(int pkid, string passwordHash, DateTime passwordUpdatedTime)
     {
         using var conn = await db.OpenAsync();
         var rows = await conn.ExecuteAsync(
-            "UPDATE AppUser SET PasswordHash = @passwordHash, PasswordUpdatedTime = NULL WHERE pkid = @pkid",
-            new { pkid, passwordHash });
+            "UPDATE AppUser SET PasswordHash = @passwordHash, PasswordUpdatedTime = @passwordUpdatedTime WHERE pkid = @pkid",
+            new { pkid, passwordHash, passwordUpdatedTime });
         return rows > 0;
     }
 

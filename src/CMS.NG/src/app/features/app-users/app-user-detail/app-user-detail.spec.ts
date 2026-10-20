@@ -2,10 +2,14 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { HttpErrorResponse } from '@angular/common/http';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { Router, provideRouter } from '@angular/router';
+import { signal } from '@angular/core';
+import { By } from '@angular/platform-browser';
 import { of, throwError } from 'rxjs';
 import { Confirmation, ConfirmationService, MessageService } from 'primeng/api';
 import { AppUser } from '../app-user.model';
 import { AppUserService } from '../app-user.service';
+import { AuthService } from '../../../core/auth/auth.service';
+import { ResetPasswordButton } from '../reset-password-button/reset-password-button';
 import { AppUserDetail } from './app-user-detail';
 
 describe('AppUserDetail', () => {
@@ -13,6 +17,7 @@ describe('AppUserDetail', () => {
   let service: jasmine.SpyObj<AppUserService>;
   let confirmation: ConfirmationService;
   let messages: MessageService;
+  const isAdmin = signal(true);
 
   const user: AppUser = {
     pkid: 1,
@@ -39,14 +44,13 @@ describe('AppUserDetail', () => {
   const text = (el: HTMLElement, f: string) => el.querySelector(`[data-field="${f}"]`)?.textContent?.trim();
 
   beforeEach(async () => {
+    isAdmin.set(true);
     service = jasmine.createSpyObj<AppUserService>('AppUserService', [
       'getById',
-      'resetPassword',
       'regenerateAgentToken',
       'revokeAgentToken',
     ]);
     service.getById.and.returnValue(of(user));
-    service.resetPassword.and.returnValue(of(undefined));
     service.regenerateAgentToken.and.returnValue(of({ token: 'cms_at_new' }));
     service.revokeAgentToken.and.returnValue(of(undefined));
 
@@ -58,6 +62,7 @@ describe('AppUserDetail', () => {
         MessageService,
         ConfirmationService,
         { provide: AppUserService, useValue: service },
+        { provide: AuthService, useValue: { isAdmin } },
       ],
     }).compileComponents();
 
@@ -103,49 +108,21 @@ describe('AppUserDetail', () => {
     expect(router.navigate).toHaveBeenCalledWith(['/app-users', '1', 'edit']);
   });
 
-  it('confirmResetPassword() resets after confirmation and reloads', () => {
-    create('1');
-    spyOn(confirmation, 'confirm').and.callFake((c: Confirmation) => {
-      c.accept?.();
-      return confirmation;
-    });
-    const add = spyOn(messages, 'add');
+  it('shows 重設密碼 to Admins and reloads after a reset', () => {
+    const el = create('1');
+    const button = fixture.debugElement.query(By.directive(ResetPasswordButton));
+    expect(el.querySelector('[data-action="reset-password"]')).not.toBeNull();
     service.getById.calls.reset();
 
-    fixture.componentInstance.confirmResetPassword();
+    (button.componentInstance as ResetPasswordButton).reset.emit();
 
-    expect(service.resetPassword).toHaveBeenCalledOnceWith(1);
-    expect(add).toHaveBeenCalledWith(jasmine.objectContaining({ severity: 'success' }));
-    expect(service.getById).toHaveBeenCalledTimes(1);
+    expect(service.getById).toHaveBeenCalledOnceWith(1);
   });
 
-  it('confirmResetPassword() does nothing when rejected', () => {
-    create('1');
-    spyOn(confirmation, 'confirm').and.callFake((c: Confirmation) => {
-      c.reject?.();
-      return confirmation;
-    });
-    fixture.componentInstance.confirmResetPassword();
-    expect(service.resetPassword).not.toHaveBeenCalled();
-  });
-
-  it('shows the API message when reset fails', () => {
-    service.resetPassword.and.returnValue(
-      throwError(() => new HttpErrorResponse({ status: 500, error: { message: '系統設定 appConfig 缺少 defaultPassword' } })),
-    );
-    create('1');
-    spyOn(confirmation, 'confirm').and.callFake((c: Confirmation) => {
-      c.accept?.();
-      return confirmation;
-    });
-    const add = spyOn(messages, 'add');
-
-    fixture.componentInstance.confirmResetPassword();
-
-    expect(add).toHaveBeenCalledWith(
-      jasmine.objectContaining({ severity: 'error', detail: '系統設定 appConfig 缺少 defaultPassword' }),
-    );
-    expect(fixture.componentInstance.resetting()).toBeFalse();
+  it('hides 重設密碼 from non-Admins', () => {
+    isAdmin.set(false);
+    const el = create('1');
+    expect(el.querySelector('[data-action="reset-password"]')).toBeNull();
   });
 
   // ---------- Agent token ----------

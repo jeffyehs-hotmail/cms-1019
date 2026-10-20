@@ -1,7 +1,9 @@
-import { Component, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { ToastModule } from 'primeng/toast';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
+import { ButtonModule } from 'primeng/button';
+import { AuthService } from './core/auth/auth.service';
 
 export interface NavItem {
   label: string;
@@ -13,21 +15,25 @@ export interface NavGroup {
   label: string;
   icon: string;
   items: NavItem[];
+  /** Shown only to users whose token carries the Admin role. */
+  adminOnly?: boolean;
 }
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, ToastModule, ConfirmDialogModule],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, ToastModule, ConfirmDialogModule, ButtonModule],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })
 export class App {
+  protected readonly auth = inject(AuthService);
   protected readonly collapsed = signal(false);
 
   protected readonly navGroups: NavGroup[] = [
     {
       label: '系統管理 Admin',
       icon: 'pi pi-shield',
+      adminOnly: true,
       items: [
         { label: '使用者 AppUser', icon: 'pi pi-user', route: '/app-users' },
         { label: '角色 AppRole', icon: 'pi pi-id-card', route: '/app-roles' },
@@ -51,6 +57,11 @@ export class App {
     },
   ];
 
+  /** Groups the signed-in user may see (roles come from the stored token). */
+  protected readonly visibleNavGroups = computed(() =>
+    this.navGroups.filter((g) => !g.adminOnly || this.auth.isAdmin()),
+  );
+
   /** Expanded nav groups, keyed by label. All open by default. */
   protected readonly openGroups = signal(new Set(this.navGroups.map((g) => g.label)));
 
@@ -65,5 +76,9 @@ export class App {
 
   protected toggleSidebar(): void {
     this.collapsed.update((v) => !v);
+  }
+
+  protected logout(): void {
+    this.auth.logout();
   }
 }

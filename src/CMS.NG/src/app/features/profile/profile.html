@@ -1,0 +1,81 @@
+<form [formGroup]="form" (ngSubmit)="save()">
+  <div class="page-header">
+    <h1 class="title">我的個人資料</h1>
+    <div class="actions">
+      @if (profile()) {
+        <p-button type="submit" label="儲存" icon="pi pi-check" [loading]="saving()" [disabled]="form.pristine" />
+      }
+    </div>
+  </div>
+
+  @if (profile(); as p) {
+    <section class="page-card">
+      <h2>使用者資料</h2>
+      <div class="field">
+        <label>使用者帳號</label>
+        <div class="view-value" data-field="userId">{{ p.userId }}</div>
+      </div>
+
+      <div class="field">
+        <label for="userName" class="required">使用者名稱</label>
+        <input pInputText id="userName" formControlName="userName" />
+        @if (showError()) {
+          <small class="error">
+            {{ form.controls.userName.hasError('maxlength') ? '最多 200 字' : '請輸入使用者名稱' }}
+          </small>
+        }
+      </div>
+    </section>
+
+    <section class="page-card">
+      <h2>角色 <span class="muted">({{ p.roles.length }})</span></h2>
+      <div data-field="roles">
+        @if (p.roles.length) {
+          <div class="role-chips">
+            @for (r of p.roles; track r.roleId) {
+              <p-chip [label]="r.roleName + ' (' + r.roleId + ')'" icon="pi pi-id-card" />
+            }
+          </div>
+        } @else {
+          <span class="muted">尚未指派角色</span>
+        }
+      </div>
+      <p class="muted"><i class="pi pi-info-circle"></i> 角色由系統管理員指派，無法在此變更。</p>
+    </section>
+  }
+</form>
+
+@if (profile()) {
+  <form [formGroup]="passwordForm" (ngSubmit)="changePassword()" data-form="password">
+    <section class="page-card">
+      <h2>變更密碼</h2>
+      <div class="field">
+        <label for="currentPassword" class="required">目前密碼</label>
+        <input pInputText id="currentPassword" type="password" autocomplete="current-password" formControlName="currentPassword" />
+        @if (passwordError('currentPassword'); as e) {
+          <small class="error">{{ e }}</small>
+        }
+      </div>
+
+      <div class="field">
+        <label for="newPassword" class="required">新密碼</label>
+        <input pInputText id="newPassword" type="password" autocomplete="new-password" formControlName="newPassword" />
+        @if (passwordError('newPassword'); as e) {
+          <small class="error">{{ e }}</small>
+        } @else {
+          <small class="muted policy-hint">{{ passwordPolicyMessage }}</small>
+        }
+      </div>
+
+      <div class="field">
+        <label for="confirmPassword" class="required">確認新密碼</label>
+        <input pInputText id="confirmPassword" type="password" autocomplete="new-password" formControlName="confirmPassword" />
+        @if (passwordError('confirmPassword'); as e) {
+          <small class="error">{{ e }}</small>
+        }
+      </div>
+
+      <p-button type="submit" label="變更密碼" icon="pi pi-key" [loading]="changingPassword()" />
+    </section>
+  </form>
+}

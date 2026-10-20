@@ -47,7 +47,8 @@ cd src/CMS.NG && npx ng build               # production build (checks budgets)
 Smoke tests write real rows into the live `CMS` database.
 
 - Use ASCII `ZZ…`/`zz…` keys for string-keyed tables and far-future dates (e.g. 2099) for date-keyed ones (FeaturedPromoItem: training center 54).
-- Login (`POST api/auth/login`): real passwords are unknown, so insert temporary `ZZ…` `AppUser` rows with `PasswordHash` = lowercase hex SHA-256 of a test password (`node -e` + `crypto`) plus `AppUserRole` rows, then delete both.
+- Login (`POST api/auth/login`): real passwords are unknown, so insert temporary `ZZ…` `AppUser` rows with `PasswordHash` = lowercase hex SHA-256 of a test password (`node -e` + `crypto`) plus `AppUserRole` rows (`Admin` for the full menu), then delete both. **Every other endpoint needs this token** (except agent-token ingest, which takes a `cms_at_` token): `T=$(curl -s -H 'Content-Type: application/json' -d '{"userId":"ZZadmin","password":"…"}' $B/auth/login | jq -r .accessToken)`, then `-H "Authorization: Bearer $T"`. Without it the API returns 401 `{ message: "請先登入" }`.
+- Browser checks against :4200 need a login too; the `ZZ` user works there, as long as :5000 runs the auth code.
 - Delete the rows afterwards and verify with sqlcmd, including side tables (`CourseRecomm`, `AppUserRole`, `CourseInCertification`, `CourseJobCategories`) and temporary values (FeaturedPromoItem `Slot = 0`).
 
 ## Tooling quirks

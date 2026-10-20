@@ -11,6 +11,7 @@ import { ToggleSwitchModule } from 'primeng/toggleswitch';
 import { LookupService } from '../../../core/services/lookup.service';
 import { AppUser, AppUserRequest } from '../app-user.model';
 import { AppUserService } from '../app-user.service';
+import { ResetPasswordButton } from '../reset-password-button/reset-password-button';
 
 interface RoleOption {
   roleId: string;
@@ -22,7 +23,7 @@ const NOT_BLANK = Validators.pattern(/\S/);
 
 @Component({
   selector: 'app-app-user-form',
-  imports: [ReactiveFormsModule, ButtonModule, InputTextModule, MultiSelectModule, ToggleSwitchModule],
+  imports: [ReactiveFormsModule, ButtonModule, InputTextModule, MultiSelectModule, ToggleSwitchModule, ResetPasswordButton],
   templateUrl: './app-user-form.html',
 })
 export class AppUserForm implements OnInit {
@@ -38,6 +39,8 @@ export class AppUserForm implements OnInit {
   readonly isEdit = computed(() => !!this.id());
   readonly roleOptions = signal<RoleOption[]>([]);
   readonly saving = signal(false);
+  /** The user being edited, once loaded (edit mode only). */
+  readonly loaded = signal<AppUser | null>(null);
 
   readonly form = this.fb.nonNullable.group({
     userId: ['', [Validators.required, Validators.maxLength(200), NOT_BLANK]],
@@ -62,6 +65,7 @@ export class AppUserForm implements OnInit {
   }
 
   private patch(user: AppUser): void {
+    this.loaded.set(user);
     this.form.patchValue({
       userId: user.userId,
       userName: user.userName,

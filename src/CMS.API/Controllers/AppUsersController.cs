@@ -1,14 +1,19 @@
 using CMS.API.Models;
 using CMS.API.Repositories;
 using CMS.API.Security;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CMS.API.Controllers;
 
 [ApiController]
 [Route("api/app-users")]
-public class AppUsersController(IAppUserRepository repo) : ControllerBase
+public class AppUsersController(IAppUserRepository repo, TimeProvider time) : ControllerBase
 {
+    private const string AdminRole = "Admin";
+    /// <summary>Taiwan has no DST, so Taipei time is always UTC+8.</summary>
+    private static readonly TimeSpan TaipeiOffset = TimeSpan.FromHours(8);
+
     [HttpGet]
     public async Task<ActionResult<IEnumerable<AppUser>>> GetAll()
         => Ok(await repo.GetAllAsync());
@@ -50,7 +55,11 @@ public class AppUsersController(IAppUserRepository repo) : ControllerBase
         return Ok(await repo.GetByIdAsync(request.Pkid));
     }
 
-    /// <summary>Resets the password to SysConfig appConfig.defaultPassword.</summary>
+    /// <summary>
+    /// Resets the password to SHA-256(SysConfig appConfig.defaultPassword) with PasswordUpdatedTime = now (Taipei time).
+    /// Admin role only (403 otherwise); the response carries no password or hash.
+    /// </summary>
+    [Authorize(Roles = AdminRole)]
     [HttpPost("{id:int}/reset-password")]
     public async Task<IActionResult> ResetPassword(int id)
     {
@@ -59,7 +68,8 @@ public class AppUsersController(IAppUserRepository repo) : ControllerBase
         var hash = await DefaultPasswordHashAsync();
         if (hash is null) return MissingDefaultPassword();
 
-        return await repo.ResetPasswordAsync(id, hash) ? NoContent() : NotFound();
+        var now = time.GetUtcNow().ToOffset(TaipeiOffset).DateTime;
+        return await repo.ResetPasswordAsync(id, hash, now) ? NoContent() : NotFound();
     }
 
     /// <summary>Issues a new agent token (the old one stops working). The plain token is returned only here.</summary>

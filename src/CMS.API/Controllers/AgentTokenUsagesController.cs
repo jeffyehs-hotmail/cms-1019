@@ -1,6 +1,7 @@
 using CMS.API.Models;
 using CMS.API.Repositories;
 using CMS.API.Security;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CMS.API.Controllers;
@@ -17,7 +18,9 @@ public class AgentTokenUsagesController(IAgentTokenUsageRepository repo, TimePro
     private static readonly TimeSpan TaipeiOffset = TimeSpan.FromHours(8);
 
     /// <summary>Replaces all rows of the session. Requires <c>Authorization: Bearer cms_at_...</c>; the user comes from the token.</summary>
+    // The hook has no login JWT, so this action opts out of the global [Authorize] policy and checks its own token.
     [HttpPost]
+    [AllowAnonymous]
     public async Task<IActionResult> Report([FromBody] AgentTokenUsageReport report)
     {
         var token = AgentTokenHasher.ReadBearer(Request.Headers.Authorization.ToString());

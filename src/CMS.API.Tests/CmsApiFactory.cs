@@ -1,4 +1,7 @@
+using System.Net.Http.Headers;
+using System.Text;
 using CMS.API.Repositories;
+using CMS.API.Security;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
@@ -6,7 +9,10 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace CMS.API.Tests;
 
-/// <summary>Hosts CMS.API in-memory with the database-backed repositories swapped for fakes.</summary>
+/// <summary>
+/// Hosts CMS.API in-memory with the database-backed repositories swapped for fakes. Clients from CreateClient()
+/// (also via WithWebHostBuilder) send a valid login JWT for alice (Admin); tests of anonymous access clear the header.
+/// </summary>
 public class CmsApiFactory : WebApplicationFactory<Program>
 {
     public FakeAppRoleRepository AppRoles { get; } = new();
@@ -20,6 +26,17 @@ public class CmsApiFactory : WebApplicationFactory<Program>
     public FakeAgentTokenUsageRepository AgentTokenUsages { get; }
 
     public CmsApiFactory() => AgentTokenUsages = new FakeAgentTokenUsageRepository(AppUsers);
+
+    /// <summary>A login JWT signed with the fake SysConfig key, as AuthController would issue it.</summary>
+    public static string AccessToken(string userId = "alice", string userName = "Alice", string[]? roles = null, DateTime? now = null)
+        => AccessTokenIssuer.Create(userId, userName, roles ?? ["Admin", "User"],
+            Encoding.UTF8.GetBytes(FakeAuthRepository.SigningKey), now ?? DateTime.UtcNow);
+
+    protected override void ConfigureClient(HttpClient client)
+    {
+        base.ConfigureClient(client);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", AccessToken());
+    }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {

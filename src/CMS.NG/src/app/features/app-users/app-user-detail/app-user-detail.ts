@@ -8,10 +8,11 @@ import { DialogModule } from 'primeng/dialog';
 import { InputTextModule } from 'primeng/inputtext';
 import { AppUser } from '../app-user.model';
 import { AppUserService } from '../app-user.service';
+import { ResetPasswordButton } from '../reset-password-button/reset-password-button';
 
 @Component({
   selector: 'app-app-user-detail',
-  imports: [DatePipe, ButtonModule, ChipModule, DialogModule, InputTextModule],
+  imports: [DatePipe, ButtonModule, ChipModule, DialogModule, InputTextModule, ResetPasswordButton],
   templateUrl: './app-user-detail.html',
   styles: `
     .role-chips {
@@ -44,7 +45,6 @@ export class AppUserDetail implements OnInit {
 
   readonly user = signal<AppUser | null>(null);
   readonly notFound = signal(false);
-  readonly resetting = signal(false);
   readonly tokenBusy = signal(false);
   /** Newly issued agent token; shown once in the dialog and dropped when it closes. */
   readonly issuedToken = signal<string | null>(null);
@@ -53,7 +53,7 @@ export class AppUserDetail implements OnInit {
     this.load();
   }
 
-  private load(): void {
+  load(): void {
     this.service.getById(Number(this.id())).subscribe({
       next: (user) => this.user.set(user),
       error: (err) => {
@@ -71,36 +71,6 @@ export class AppUserDetail implements OnInit {
 
   edit(): void {
     this.router.navigate(['/app-users', this.id(), 'edit']);
-  }
-
-  confirmResetPassword(): void {
-    const user = this.user();
-    if (!user) return;
-    this.confirmation.confirm({
-      header: '重設密碼',
-      message: `確定要將使用者「${user.userId}」的密碼重設為系統預設密碼？`,
-      icon: 'pi pi-key',
-      acceptLabel: '重設',
-      rejectLabel: '取消',
-      acceptButtonProps: { severity: 'warn' },
-      rejectButtonProps: { severity: 'secondary', outlined: true },
-      accept: () => this.resetPassword(user),
-    });
-  }
-
-  private resetPassword(user: AppUser): void {
-    this.resetting.set(true);
-    this.service.resetPassword(user.pkid).subscribe({
-      next: () => {
-        this.resetting.set(false);
-        this.messages.add({ severity: 'success', summary: '已重設', detail: `使用者「${user.userId}」的密碼已重設為預設密碼` });
-        this.load();
-      },
-      error: (err) => {
-        this.resetting.set(false);
-        this.messages.add({ severity: 'error', summary: '錯誤', detail: err?.error?.message ?? '重設密碼失敗' });
-      },
-    });
   }
 
   confirmRegenerateAgentToken(): void {

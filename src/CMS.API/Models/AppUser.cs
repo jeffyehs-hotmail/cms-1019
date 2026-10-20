@@ -8,7 +8,7 @@ public class AppUser
     public string UserName { get; set; } = string.Empty;
     public bool IsActive { get; set; }
 
-    /// <summary>NULL = still on the default password (set on create / reset).</summary>
+    /// <summary>NULL = still on the default password set on create; a reset or change-password sets it to now.</summary>
     public DateTime? PasswordUpdatedTime { get; set; }
 
     /// <summary>Number of roles assigned via AppUserRole (n-n subquery count).</summary>

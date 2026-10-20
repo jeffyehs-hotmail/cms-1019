@@ -3,7 +3,9 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { Router, provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
-import { MessageService } from 'primeng/api';
+import { signal } from '@angular/core';
+import { ConfirmationService, MessageService } from 'primeng/api';
+import { AuthService } from '../../../core/auth/auth.service';
 import { LookupService } from '../../../core/services/lookup.service';
 import { AppUser } from '../app-user.model';
 import { AppUserService } from '../app-user.service';
@@ -16,6 +18,7 @@ describe('AppUserForm', () => {
   let lookups: jasmine.SpyObj<LookupService>;
   let router: Router;
   let messages: MessageService;
+  const isAdmin = signal(true);
 
   const roles = [
     { pkid: 1, roleId: 'Admin', roleName: 'Administrator' },
@@ -42,6 +45,7 @@ describe('AppUserForm', () => {
   }
 
   beforeEach(async () => {
+    isAdmin.set(true);
     service = jasmine.createSpyObj<AppUserService>('AppUserService', ['getById', 'create', 'update']);
     lookups = jasmine.createSpyObj<LookupService>('LookupService', ['getAppRoles']);
     lookups.getAppRoles.and.returnValue(of(roles));
@@ -55,6 +59,8 @@ describe('AppUserForm', () => {
         provideRouter([]),
         provideNoopAnimations(),
         MessageService,
+        ConfirmationService,
+        { provide: AuthService, useValue: { isAdmin } },
         { provide: AppUserService, useValue: service },
         { provide: LookupService, useValue: lookups },
       ],
@@ -133,8 +139,25 @@ describe('AppUserForm', () => {
     });
   });
 
+  const resetButton = () => (fixture.nativeElement as HTMLElement).querySelector('[data-action="reset-password"]');
+
+  it('hides 重設密碼 in add mode', () => {
+    create();
+    expect(resetButton()).toBeNull();
+  });
+
+  it('hides 重設密碼 in edit mode from non-Admins', () => {
+    isAdmin.set(false);
+    create('1');
+    expect(resetButton()).toBeNull();
+  });
+
   describe('edit mode', () => {
     beforeEach(() => create('1'));
+
+    it('shows 重設密碼 to Admins once the user is loaded', () => {
+      expect(resetButton()).not.toBeNull();
+    });
 
     it('loads the record, patches the form and disables UserId', () => {
       expect(service.getById).toHaveBeenCalledOnceWith(1);

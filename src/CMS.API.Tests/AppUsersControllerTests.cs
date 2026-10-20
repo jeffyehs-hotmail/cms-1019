@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using CMS.API.Models;
@@ -253,17 +254,66 @@ public class AppUsersControllerTests : IDisposable
         Assert.Equal(["Admin", "User"], (await _client.GetFromJsonAsync<AppUser>($"{Url}/1"))!.Roles.Select(r => r.RoleId));
     }
 
-    // ---------- Reset password ----------
+    // ---------- Reset password (Admin only) ----------
+
+    private static DateTime TaipeiNow() => DateTime.UtcNow.AddHours(8);
+
+    private HttpClient ClientAs(params string[] roles)
+    {
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", CmsApiFactory.AccessToken("carol", "Carol", roles));
+        return client;
+    }
 
     [Fact]
-    public async Task ResetPassword_Returns204_AndRestoresDefaultHash()
+    public async Task ResetPassword_AsAdmin_StoresSha256OfSysConfigDefault_AndUpdatesTime()
     {
-        var res = await _client.PostAsync($"{Url}/1/reset-password", null);
+        _factory.AppUsers.AppConfigValue = """{"defaultPassword":"Fresh#Default9"}""";
+        var before = TaipeiNow();
+        var res = await ClientAs("Admin").PostAsync($"{Url}/1/reset-password", null);
+        var after = TaipeiNow();
 
         Assert.Equal(HttpStatusCode.NoContent, res.StatusCode);
         var stored = _factory.AppUsers.Find(1)!;
-        Assert.Equal(PasswordHasher.Hash(FakeAppUserRepository.DefaultPassword), stored.PasswordHash);
+        Assert.Equal(PasswordHasher.Hash("Fresh#Default9"), stored.PasswordHash);
+        Assert.InRange(stored.User.PasswordUpdatedTime!.Value, before, after); // Taipei time
+    }
+
+    [Fact]
+    public async Task ResetPassword_ReturnsNoPasswordOrHash()
+    {
+        var res = await ClientAs("Admin").PostAsync($"{Url}/1/reset-password", null);
+
+        Assert.Equal(HttpStatusCode.NoContent, res.StatusCode);
+        Assert.Empty(await res.Content.ReadAsByteArrayAsync());
+    }
+
+    [Theory]
+    [InlineData]
+    [InlineData("User")]
+    [InlineData("admin")]
+    public async Task ResetPassword_NonAdmin_Returns403WithMessage_AndKeepsHash(params string[] roles)
+    {
+        var res = await ClientAs(roles).PostAsync($"{Url}/1/reset-password", null);
+
+        Assert.Equal(HttpStatusCode.Forbidden, res.StatusCode);
+        Assert.Equal(JwtAuthentication.Forbidden, await MessageOf(res));
+        var stored = _factory.AppUsers.Find(1)!;
+        Assert.Equal("seed-hash", stored.PasswordHash);
         Assert.Null(stored.User.PasswordUpdatedTime);
+    }
+
+    [Fact]
+    public async Task ResetPassword_Anonymous_Returns401()
+    {
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = null;
+
+        var res = await client.PostAsync($"{Url}/1/reset-password", null);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, res.StatusCode);
+        Assert.Equal("seed-hash", _factory.AppUsers.Find(1)!.PasswordHash);
     }
 
     [Fact]
@@ -281,6 +331,7 @@ public class AppUsersControllerTests : IDisposable
 
         Assert.Equal(HttpStatusCode.InternalServerError, res.StatusCode);
         Assert.Equal("seed-hash", _factory.AppUsers.Find(1)!.PasswordHash);
+        Assert.Null(_factory.AppUsers.Find(1)!.User.PasswordUpdatedTime);
     }
 
     // ---------- Delete ----------

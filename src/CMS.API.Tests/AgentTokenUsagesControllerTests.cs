@@ -57,6 +57,7 @@ public class AgentTokenUsagesControllerTests : IDisposable
         => (await res.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("message").GetString();
 
     // ---------- Auth ----------
+    // Report is [AllowAnonymous] and checks the agent token itself; Client(token: null) keeps the factory's login JWT.
 
     [Theory]
     [InlineData(null)]
@@ -326,6 +327,15 @@ public class AgentTokenUsagesControllerTests : IDisposable
 
         Assert.Equal(["cms-1019", "other"], options!.Projects);
         Assert.Equal(["claude-haiku-5-5", "claude-opus-5-5"], options.Models);
+    }
+
+    [Fact]
+    public async Task Query_And_FilterOptions_NeedALoginToken_NotAnAgentToken()
+    {
+        var client = Client();   // Bearer cms_at_... replaces the factory's login JWT
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync($"{Url}/query", new { })).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync($"{Url}/filter-options")).StatusCode);
     }
 
     private sealed class FixedTimeProvider(DateTimeOffset now) : TimeProvider

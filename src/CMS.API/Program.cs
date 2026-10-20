@@ -1,5 +1,7 @@
 using CMS.API.Data;
 using CMS.API.Repositories;
+using CMS.API.Security;
+using Microsoft.OpenApi.Models;
 using Dapper;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -13,6 +15,16 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new() { Title = "CMS API", Version = "v1" });
+    // Lets Swagger UI send the login token (Authorize button) to the protected endpoints.
+    var bearer = new OpenApiSecurityScheme
+    {
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" },
+    };
+    c.AddSecurityDefinition("Bearer", bearer);
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement { [bearer] = [] });
 });
 
 const string LocalhostCors = "Localhost";
@@ -39,6 +51,7 @@ builder.Services.AddScoped<ILookupRepository, LookupRepository>();
 builder.Services.AddScoped<IAuthRepository, AuthRepository>();
 builder.Services.AddScoped<IAgentTokenUsageRepository, AgentTokenUsageRepository>();
 builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddCmsJwtAuthentication();
 
 var app = builder.Build();
 
@@ -50,8 +63,10 @@ app.UseSwaggerUI(c =>
 });
 
 app.UseCors(LocalhostCors);
+app.UseAuthentication();
 app.UseAuthorization();
-app.MapControllers();
+// Every controller needs a logged-in user unless it opts out with [AllowAnonymous] (AuthController, agent-token ingest).
+app.MapControllers().RequireAuthorization();
 
 app.Run();
 

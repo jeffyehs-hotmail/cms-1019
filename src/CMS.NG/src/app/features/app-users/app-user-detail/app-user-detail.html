@@ -2,15 +2,8 @@
   <h1 class="title">檢視使用者</h1>
   <div class="actions">
     <p-button label="返回" icon="pi pi-arrow-left" severity="secondary" (onClick)="back()" />
-    @if (user()) {
-      <p-button
-        label="重設密碼"
-        icon="pi pi-key"
-        severity="warn"
-        [outlined]="true"
-        [loading]="resetting()"
-        (onClick)="confirmResetPassword()"
-      />
+    @if (user(); as u) {
+      <app-reset-password-button [pkid]="u.pkid" [userId]="u.userId" (reset)="load()" />
       <p-button label="編輯" icon="pi pi-pencil" (onClick)="edit()" />
     }
   </div>
