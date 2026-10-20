@@ -49,7 +49,7 @@ It runs in plain Node (18 or later) and has no dependencies.
    | Response | What happens |
    |---|---|
    | 2xx | File deleted |
-   | 408, 429, 5xx, offline | File kept; retried at the next session end |
+   | 404 (API not updated yet), 408, 429, 5xx, offline | File kept; retried at the next session end |
    | Other 4xx | File moved to `failed/`. After fixing the token or config, run `node report.js --retry-failed` |
 
 4. **Server.** The server replaces all rows of a session on every report, so resending (resume, retry, backfill) never double-counts. The user is taken from the token, and cost is calculated on the server from `AgentModelPrice`.

@@ -23,10 +23,13 @@ function enqueue(home, report) {
   return file;
 }
 
-/** 2xx = sent; 408/429/5xx/network = retry later; any other 4xx = the report or token is bad, park it in failed/. */
+/**
+ * 2xx = sent; 404 (API without this endpoint yet) / 408 / 429 / 5xx / network = retry later;
+ * any other 4xx = the report or token is bad, park it in failed/.
+ */
 function outcomeOf(status) {
   if (status >= 200 && status < 300) return 'sent';
-  if (status >= 400 && status < 500 && status !== 408 && status !== 429) return 'failed';
+  if (status >= 400 && status < 500 && ![404, 408, 429].includes(status)) return 'failed';
   return 'retry';
 }
 

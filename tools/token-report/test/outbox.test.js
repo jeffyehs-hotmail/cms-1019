@@ -20,11 +20,12 @@ const list = (dir) => {
   }
 };
 
-test('outcomeOf: 2xx sent, 408/429/5xx/network retried, other 4xx failed', () => {
+test('outcomeOf: 2xx sent, 404/408/429/5xx/network retried, other 4xx failed', () => {
   assert.equal(outcomeOf(204), 'sent');
   assert.equal(outcomeOf(400), 'failed');
   assert.equal(outcomeOf(401), 'failed');
   assert.equal(outcomeOf(409), 'failed');
+  assert.equal(outcomeOf(404), 'retry'); // API not updated yet
   assert.equal(outcomeOf(408), 'retry');
   assert.equal(outcomeOf(429), 'retry');
   assert.equal(outcomeOf(500), 'retry');
