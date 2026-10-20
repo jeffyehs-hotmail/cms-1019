@@ -6,8 +6,10 @@ using Dapper;
 
 namespace CMS.API.Repositories;
 
-public class AppRoleRepository(IDbConnectionFactory db) : IAppRoleRepository
+public class AppRoleRepository(IDbConnectionFactory db, RowAuditWriter audit) : IAppRoleRepository
 {
+    private const string Table = "AppRole";
+
     private const string SelectSql = """
         SELECT r.pkid, r.RoleId, r.RoleName, r.PermissionLevel, r.Description,
                (SELECT COUNT(*) FROM AppUserRole ur WHERE ur.RoleId = r.RoleId) AS UserCount
@@ -88,6 +90,7 @@ public class AppRoleRepository(IDbConnectionFactory db) : IAppRoleRepository
 
         await InsertUsersAsync(conn, tx, request.RoleId, request.UserIds);
 
+        await audit.LogInsertAsync(Table, (await RowAuditWriter.LoadRowAsync(tx, Table, pkid))!, tx);
         tx.Commit();
         return pkid;
     }
@@ -98,9 +101,9 @@ public class AppRoleRepository(IDbConnectionFactory db) : IAppRoleRepository
         using var tx = conn.BeginTransaction();
 
         // RoleId is the table PK (referenced by AppUserRole) — never changed on update.
-        var roleId = await conn.ExecuteScalarAsync<string?>(
-            "SELECT RoleId FROM AppRole WHERE pkid = @Pkid", new { request.Pkid }, tx);
-        if (roleId is null) return false;
+        var before = await RowAuditWriter.LoadRowAsync(tx, Table, request.Pkid);
+        if (before is null) return false;
+        var roleId = (string)before["RoleId"]!;
 
         await conn.ExecuteAsync("""
             UPDATE AppRole
@@ -112,6 +115,7 @@ public class AppRoleRepository(IDbConnectionFactory db) : IAppRoleRepository
         await conn.ExecuteAsync("DELETE FROM AppUserRole WHERE RoleId = @roleId", new { roleId }, tx);
         await InsertUsersAsync(conn, tx, roleId, request.UserIds);
 
+        await audit.LogUpdateAsync(Table, before, (await RowAuditWriter.LoadRowAsync(tx, Table, request.Pkid))!, tx);
         tx.Commit();
         return true;
     }
@@ -121,13 +125,14 @@ public class AppRoleRepository(IDbConnectionFactory db) : IAppRoleRepository
         using var conn = await db.OpenAsync();
         using var tx = conn.BeginTransaction();
 
-        var roleId = await conn.ExecuteScalarAsync<string?>(
-            "SELECT RoleId FROM AppRole WHERE pkid = @pkid", new { pkid }, tx);
-        if (roleId is null) return false;
+        var row = await RowAuditWriter.LoadRowAsync(tx, Table, pkid);
+        if (row is null) return false;
+        var roleId = (string)row["RoleId"]!;
 
         await conn.ExecuteAsync("DELETE FROM AppUserRole WHERE RoleId = @roleId", new { roleId }, tx);
         await conn.ExecuteAsync("DELETE FROM AppRole WHERE pkid = @pkid", new { pkid }, tx);
 
+        await audit.LogDeleteAsync(Table, row, tx);
         tx.Commit();
         return true;
     }

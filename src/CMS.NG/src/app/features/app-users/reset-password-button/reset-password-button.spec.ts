@@ -106,4 +106,21 @@ describe('ResetPasswordButton', () => {
     expect(emitted).toBe(0);
     expect(fixture.componentInstance.resetting()).toBeFalse();
   });
+
+  it('leaves the 5xx toast to the interceptor (no second toast) when reset fails', () => {
+    service.resetPassword.and.returnValue(
+      throwError(() => new HttpErrorResponse({ status: 500, error: { message: '系統發生未預期的錯誤，請稍後再試' } })),
+    );
+    create();
+    answerConfirm(true);
+    const add = spyOn(messages, 'add');
+    let emitted = 0;
+    fixture.componentInstance.reset.subscribe(() => emitted++);
+
+    fixture.componentInstance.confirmReset();
+
+    expect(add).not.toHaveBeenCalledWith(jasmine.objectContaining({ severity: 'error' }));
+    expect(emitted).toBe(0);
+    expect(fixture.componentInstance.resetting()).toBeFalse();
+  });
 });

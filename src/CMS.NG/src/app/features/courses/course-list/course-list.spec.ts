@@ -459,8 +459,8 @@ describe('CourseList', () => {
       expect(add).toHaveBeenCalledWith(jasmine.objectContaining({ severity: 'error', detail: "簡介代碼 'CCNA' 已存在" }));
     });
 
-    it('reverts with a generic message on a server error', async () => {
-      service.update.and.returnValue(throwError(() => new HttpErrorResponse({ status: 500 })));
+    it('reverts with a generic message on a network error', async () => {
+      service.update.and.returnValue(throwError(() => new HttpErrorResponse({ status: 0 })));
       const add = spyOn(messages, 'add');
       await openCell(10, COL.hour);
       component.editValue = 99;
@@ -469,6 +469,21 @@ describe('CourseList', () => {
 
       expect(row(10).hour).toBe(32);
       expect(add).toHaveBeenCalledWith(jasmine.objectContaining({ severity: 'error', detail: '儲存失敗' }));
+    });
+
+    it('leaves the 5xx toast to the interceptor (no second toast) when the inline save fails, and reverts', async () => {
+      service.update.and.returnValue(
+        throwError(() => new HttpErrorResponse({ status: 500, error: { message: '系統發生未預期的錯誤，請稍後再試' } })),
+      );
+      const add = spyOn(messages, 'add');
+      await openCell(10, COL.hour);
+      component.editValue = 99;
+      component.commit();
+      await settle();
+
+      expect(row(10).hour).toBe(32);
+      expect(component.savingPkids().size).toBe(0);
+      expect(add).not.toHaveBeenCalledWith(jasmine.objectContaining({ severity: 'error' }));
     });
 
     it('Escape cancels without saving', async () => {

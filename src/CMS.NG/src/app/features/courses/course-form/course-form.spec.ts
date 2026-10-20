@@ -3,6 +3,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { Router, provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
+import { RowAuditService } from '../../../core/components/row-audit-badge/row-audit.service';
 import { MessageService } from 'primeng/api';
 import { LookupService } from '../../../core/services/lookup.service';
 import { Course, CourseRequest } from '../course.model';
@@ -80,6 +81,7 @@ describe('CourseForm', () => {
         provideNoopAnimations(),
         MessageService,
         { provide: CourseService, useValue: service },
+        { provide: RowAuditService, useValue: jasmine.createSpyObj<RowAuditService>('RowAuditService', { getHistory: of([]) }) },
         { provide: LookupService, useValue: lookups },
       ],
     }).compileComponents();
@@ -239,6 +241,20 @@ describe('CourseForm', () => {
     expect(component.saving()).toBeFalse();
   });
 
+  it('leaves the 5xx toast to the interceptor (no second toast) when saving fails', () => {
+    create();
+    fillValid();
+    const add = spyOn(messages, 'add');
+    service.create.and.returnValue(
+      throwError(() => new HttpErrorResponse({ status: 500, error: { message: '系統發生未預期的錯誤，請稍後再試' } })),
+    );
+
+    component.save();
+
+    expect(add).not.toHaveBeenCalledWith(jasmine.objectContaining({ severity: 'error' }));
+    expect(component.saving()).toBeFalse();
+  });
+
   it('shows the 400 message from the API as a toast', () => {
     create();
     fillValid();
@@ -256,5 +272,15 @@ describe('CourseForm', () => {
     create();
     component.cancel();
     expect(router.navigate).toHaveBeenCalledWith(['/courses']);
+  });
+
+  it('shows the 異動紀錄 badge only when editing an existing record', () => {
+    create();
+    expect(fixture.nativeElement.querySelector('app-row-audit-badge')).toBeNull();
+    fixture.destroy();
+
+    create('42');
+    expect(fixture.nativeElement.querySelector('.page-header .start app-row-audit-badge')).not.toBeNull();
+    expect(TestBed.inject(RowAuditService).getHistory).toHaveBeenCalledOnceWith('Course', '42');
   });
 });

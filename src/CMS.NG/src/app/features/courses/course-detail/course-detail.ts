@@ -7,8 +7,10 @@ import { ButtonModule } from 'primeng/button';
 import { ChipModule } from 'primeng/chip';
 import { TooltipModule } from 'primeng/tooltip';
 import { QrCode } from '../../../core/components/qr-code/qr-code';
+import { RowAuditBadge } from '../../../core/components/row-audit-badge/row-audit-badge';
 import { Course, courseInUse } from '../course.model';
 import { CourseService } from '../course.service';
+import { isServerError } from '../../../core/utils/server-error';
 
 /** Public course page on the website, encoded in the detail page QR code. */
 export const COURSE_SITE_URL = 'https://www.uuu.com.tw/Course/Show';
@@ -27,7 +29,7 @@ export const TEXT_FIELDS: { key: keyof Course; label: string }[] = [
 
 @Component({
   selector: 'app-course-detail',
-  imports: [DatePipe, DecimalPipe, RouterLink, ButtonModule, ChipModule, TooltipModule, QrCode],
+  imports: [DatePipe, DecimalPipe, RouterLink, ButtonModule, ChipModule, TooltipModule, QrCode, RowAuditBadge],
   templateUrl: './course-detail.html',
   styleUrl: './course-detail.scss',
 })
@@ -49,7 +51,7 @@ export class CourseDetail implements OnInit {
       next: (course) => this.course.set(course),
       error: (err) => {
         this.notFound.set(true);
-        if (err?.status !== 404) {
+        if (err?.status !== 404 && !isServerError(err)) {
           this.messages.add({ severity: 'error', summary: '錯誤', detail: '無法載入課程資料' });
         }
       },
@@ -95,7 +97,7 @@ export class CourseDetail implements OnInit {
           },
           error: (err: HttpErrorResponse) => {
             const detail = err.status === 409 ? (err.error?.message ?? '使用中，無法刪除') : '刪除失敗';
-            this.messages.add({ severity: 'error', summary: '錯誤', detail });
+            if (!isServerError(err)) this.messages.add({ severity: 'error', summary: '錯誤', detail });
           },
         }),
     });

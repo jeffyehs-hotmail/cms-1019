@@ -3,6 +3,7 @@ import { ConfirmationService, MessageService } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
 import { AuthService } from '../../../core/auth/auth.service';
 import { AppUserService } from '../app-user.service';
+import { isServerError } from '../../../core/utils/server-error';
 
 /**
  * 重設密碼 button for the AppUser detail page and edit form: confirms, then resets the user's password to the
@@ -65,7 +66,9 @@ export class ResetPasswordButton {
       },
       error: (err) => {
         this.resetting.set(false);
-        this.messages.add({ severity: 'error', summary: '錯誤', detail: err?.error?.message ?? '重設密碼失敗' });
+        if (!isServerError(err)) {
+          this.messages.add({ severity: 'error', summary: '錯誤', detail: err?.error?.message ?? '重設密碼失敗' });
+        }
       },
     });
   }

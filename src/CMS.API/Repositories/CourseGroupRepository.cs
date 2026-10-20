@@ -5,8 +5,10 @@ using Dapper;
 
 namespace CMS.API.Repositories;
 
-public class CourseGroupRepository(IDbConnectionFactory db) : ICourseGroupRepository
+public class CourseGroupRepository(IDbConnectionFactory db, RowAuditWriter audit) : ICourseGroupRepository
 {
+    private const string Table = "CourseGroup";
+
     private const string SelectSql = """
         SELECT g.pkid, g.Description,
                (SELECT COUNT(*) FROM Course c WHERE c.CourseGroup_pkid = g.pkid) AS CourseCount,
@@ -48,23 +50,46 @@ public class CourseGroupRepository(IDbConnectionFactory db) : ICourseGroupReposi
     public async Task<short> CreateAsync(CourseGroupRequest request)
     {
         using var conn = await db.OpenAsync();
-        return await conn.ExecuteScalarAsync<short>("""
+        using var tx = conn.BeginTransaction();
+
+        var pkid = await conn.ExecuteScalarAsync<short>("""
             INSERT INTO CourseGroup (Description) VALUES (@Description);
             SELECT CAST(SCOPE_IDENTITY() AS smallint);
-            """, request);
+            """, request, tx);
+
+        await audit.LogInsertAsync(Table, (await RowAuditWriter.LoadRowAsync(tx, Table, pkid))!, tx);
+        tx.Commit();
+        return pkid;
     }
 
     public async Task<bool> UpdateAsync(CourseGroupRequest request)
     {
         using var conn = await db.OpenAsync();
-        var rows = await conn.ExecuteAsync(
-            "UPDATE CourseGroup SET Description = @Description WHERE pkid = @Pkid", request);
-        return rows > 0;
+        using var tx = conn.BeginTransaction();
+
+        var before = await RowAuditWriter.LoadRowAsync(tx, Table, request.Pkid);
+        if (before is null) return false;
+
+        await conn.ExecuteAsync(
+            "UPDATE CourseGroup SET Description = @Description WHERE pkid = @Pkid", request, tx);
+
+        await audit.LogUpdateAsync(Table, before, (await RowAuditWriter.LoadRowAsync(tx, Table, request.Pkid))!, tx);
+        tx.Commit();
+        return true;
     }
 
     public async Task<bool> DeleteAsync(short pkid)
     {
         using var conn = await db.OpenAsync();
-        return await conn.ExecuteAsync("DELETE FROM CourseGroup WHERE pkid = @pkid", new { pkid }) > 0;
+        using var tx = conn.BeginTransaction();
+
+        var row = await RowAuditWriter.LoadRowAsync(tx, Table, pkid);
+        if (row is null) return false;
+
+        await conn.ExecuteAsync("DELETE FROM CourseGroup WHERE pkid = @pkid", new { pkid }, tx);
+
+        await audit.LogDeleteAsync(Table, row, tx);
+        tx.Commit();
+        return true;
     }
 }

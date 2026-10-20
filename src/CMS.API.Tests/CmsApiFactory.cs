@@ -24,6 +24,7 @@ public class CmsApiFactory : WebApplicationFactory<Program>
     public FakeFeaturedPromoItemRepository FeaturedPromoItems { get; } = new();
     public FakeAuthRepository Auth { get; } = new();
     public FakeAgentTokenUsageRepository AgentTokenUsages { get; }
+    public FakeRowAuditRepository RowAudits { get; } = new();
 
     public CmsApiFactory() => AgentTokenUsages = new FakeAgentTokenUsageRepository(AppUsers);
 
@@ -60,6 +61,8 @@ public class CmsApiFactory : WebApplicationFactory<Program>
             services.AddSingleton<IAuthRepository>(Auth);
             services.RemoveAll<IAgentTokenUsageRepository>();
             services.AddSingleton<IAgentTokenUsageRepository>(AgentTokenUsages);
+            services.RemoveAll<IRowAuditRepository>();
+            services.AddSingleton<IRowAuditRepository>(RowAudits);
             services.RemoveAll<ILookupRepository>();
             services.AddSingleton<ILookupRepository>(new FakeLookupRepository(PublishStatuses, Partners, CourseGroups, Courses));
         });

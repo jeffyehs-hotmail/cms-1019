@@ -150,6 +150,21 @@ describe('Profile', () => {
     expect(JSON.parse(sessionStorage.getItem(AUTH_PROFILE_KEY)!).userName).toBe('Alice');
   });
 
+  it('leaves the 5xx toast to the interceptor (no second toast) when saving fails, and keeps the shell name', () => {
+    loadProfile();
+    const toast = spyOn(messages, 'add');
+
+    typeUserName('Alice Wang');
+    clickSave();
+    http
+      .expectOne(url)
+      .flush({ message: '系統發生未預期的錯誤，請稍後再試' }, { status: 500, statusText: 'Internal Server Error' });
+
+    expect(toast).not.toHaveBeenCalledWith(jasmine.objectContaining({ severity: 'error' }));
+    expect(fixture.componentInstance.saving()).toBeFalse();
+    expect(auth.userName()).toBe('Alice');
+  });
+
   describe('change password', () => {
     function typePassword(id: 'currentPassword' | 'newPassword' | 'confirmPassword', value: string): void {
       const input = el.querySelector('#' + id) as HTMLInputElement;

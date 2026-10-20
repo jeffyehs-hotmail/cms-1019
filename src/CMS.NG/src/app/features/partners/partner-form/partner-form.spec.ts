@@ -3,6 +3,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { Router, provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
+import { RowAuditService } from '../../../core/components/row-audit-badge/row-audit.service';
 import { MessageService } from 'primeng/api';
 import { Partner } from '../partner.model';
 import { PartnerService } from '../partner.service';
@@ -59,6 +60,7 @@ describe('PartnerForm', () => {
         provideNoopAnimations(),
         MessageService,
         { provide: PartnerService, useValue: service },
+        { provide: RowAuditService, useValue: jasmine.createSpyObj<RowAuditService>('RowAuditService', { getHistory: of([]) }) },
       ],
     }).compileComponents();
 
@@ -134,6 +136,19 @@ describe('PartnerForm', () => {
       expect(component.saving()).toBeFalse();
     });
 
+    it('leaves the 5xx toast to the interceptor (no second toast) when saving fails', () => {
+      service.create.and.returnValue(
+        throwError(() => new HttpErrorResponse({ status: 500, error: { message: '系統發生未預期的錯誤，請稍後再試' } })),
+      );
+      const add = spyOn(messages, 'add');
+      component.form.patchValue(valid);
+      component.save();
+
+      expect(add).not.toHaveBeenCalledWith(jasmine.objectContaining({ severity: 'error' }));
+      expect(router.navigate).not.toHaveBeenCalled();
+      expect(component.saving()).toBeFalse();
+    });
+
     it('cancel() returns to the list', () => {
       component.cancel();
       expect(router.navigate).toHaveBeenCalledWith(['/partners']);
@@ -177,5 +192,15 @@ describe('PartnerForm', () => {
       component.cancel();
       expect(router.navigate).toHaveBeenCalledWith(['/partners', '2']);
     });
+  });
+
+  it('shows the 異動紀錄 badge only when editing an existing record', () => {
+    create();
+    expect(fixture.nativeElement.querySelector('app-row-audit-badge')).toBeNull();
+    fixture.destroy();
+
+    create('2');
+    expect(fixture.nativeElement.querySelector('.page-header .start app-row-audit-badge')).not.toBeNull();
+    expect(TestBed.inject(RowAuditService).getHistory).toHaveBeenCalledOnceWith('Partner', '2');
   });
 });

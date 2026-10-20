@@ -21,8 +21,10 @@ import {
 } from '../../../core/models/lookup.model';
 import { LookupService } from '../../../core/services/lookup.service';
 import { parseIsoDate, toIsoDate } from '../../../core/utils/date.util';
+import { RowAuditBadge } from '../../../core/components/row-audit-badge/row-audit-badge';
 import { Course, CourseRequest } from '../course.model';
 import { CourseService } from '../course.service';
+import { isServerError } from '../../../core/utils/server-error';
 
 /** varchar columns (CourseId, ProdCourseId): printable ASCII only. */
 const ASCII = /^[\x20-\x7E]*$/;
@@ -60,6 +62,7 @@ export function scheduleRangeValidator(group: AbstractControl): ValidationErrors
     SelectModule,
     TextareaModule,
     ToggleSwitchModule,
+    RowAuditBadge,
   ],
   templateUrl: './course-form.html',
   styleUrl: './course-form.scss',
@@ -146,7 +149,9 @@ export class CourseForm implements OnInit {
         this.jobCategories.set(r.jobCategories);
         if (r.course) this.patch(r.course);
       },
-      error: () => this.messages.add({ severity: 'error', summary: '錯誤', detail: '無法載入資料' }),
+      error: (err: unknown) => {
+        if (!isServerError(err)) this.messages.add({ severity: 'error', summary: '錯誤', detail: '無法載入資料' });
+      },
     });
   }
 
@@ -244,7 +249,7 @@ export class CourseForm implements OnInit {
           err.status === 409 || err.status === 400
             ? (err.error?.message ?? (err.status === 409 ? '簡介代碼已存在' : '資料驗證失敗'))
             : '儲存失敗';
-        this.messages.add({ severity: 'error', summary: '錯誤', detail });
+        if (!isServerError(err)) this.messages.add({ severity: 'error', summary: '錯誤', detail });
       },
     });
   }

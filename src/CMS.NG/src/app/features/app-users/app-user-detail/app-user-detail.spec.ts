@@ -5,6 +5,7 @@ import { Router, provideRouter } from '@angular/router';
 import { signal } from '@angular/core';
 import { By } from '@angular/platform-browser';
 import { of, throwError } from 'rxjs';
+import { RowAuditService } from '../../../core/components/row-audit-badge/row-audit.service';
 import { Confirmation, ConfirmationService, MessageService } from 'primeng/api';
 import { AppUser } from '../app-user.model';
 import { AppUserService } from '../app-user.service';
@@ -62,6 +63,7 @@ describe('AppUserDetail', () => {
         MessageService,
         ConfirmationService,
         { provide: AppUserService, useValue: service },
+        { provide: RowAuditService, useValue: jasmine.createSpyObj<RowAuditService>('RowAuditService', { getHistory: of([]) }) },
         { provide: AuthService, useValue: { isAdmin } },
       ],
     }).compileComponents();
@@ -213,5 +215,25 @@ describe('AppUserDetail', () => {
     expect(add).toHaveBeenCalledWith(jasmine.objectContaining({ severity: 'error', detail: 'not here' }));
     expect(fixture.componentInstance.issuedToken()).toBeNull();
     expect(fixture.componentInstance.tokenBusy()).toBeFalse();
+  });
+
+  it('leaves the 5xx toast to the interceptor (no second toast) when regenerating fails', () => {
+    service.regenerateAgentToken.and.returnValue(
+      throwError(() => new HttpErrorResponse({ status: 500, error: { message: '系統發生未預期的錯誤，請稍後再試' } })),
+    );
+    create('1');
+    const add = spyOn(messages, 'add');
+
+    fixture.componentInstance.confirmRegenerateAgentToken();
+
+    expect(add).not.toHaveBeenCalledWith(jasmine.objectContaining({ severity: 'error' }));
+    expect(fixture.componentInstance.issuedToken()).toBeNull();
+    expect(fixture.componentInstance.tokenBusy()).toBeFalse();
+  });
+
+  it('shows the 異動紀錄 badge for this record in the page header', () => {
+    const el = create('1');
+    expect(el.querySelector('.page-header .start app-row-audit-badge')).not.toBeNull();
+    expect(TestBed.inject(RowAuditService).getHistory).toHaveBeenCalledOnceWith('AppUser', '1');
   });
 });

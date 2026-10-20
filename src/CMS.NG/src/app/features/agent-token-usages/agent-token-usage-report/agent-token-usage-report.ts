@@ -22,6 +22,7 @@ import {
   totalsOf,
 } from '../agent-token-usage.model';
 import { AgentTokenUsageService } from '../agent-token-usage.service';
+import { isServerError } from '../../../core/utils/server-error';
 
 export const FILTERS_KEY = 'agent-token-usage-report-filters';
 
@@ -85,7 +86,9 @@ export class AgentTokenUsageReport implements OnInit {
       },
       error: (err) => {
         this.loading.set(false);
-        this.messages.add({ severity: 'error', summary: '錯誤', detail: err?.error?.message ?? '無法載入 Token 用量' });
+        if (!isServerError(err)) {
+          this.messages.add({ severity: 'error', summary: '錯誤', detail: err?.error?.message ?? '無法載入 Token 用量' });
+        }
       },
     });
   }
@@ -97,7 +100,9 @@ export class AgentTokenUsageReport implements OnInit {
         this.projects.set(options.projects);
         this.models.set(options.models);
       },
-      error: () => this.messages.add({ severity: 'error', summary: '錯誤', detail: '無法載入篩選選項' }),
+      error: (err: unknown) => {
+        if (!isServerError(err)) this.messages.add({ severity: 'error', summary: '錯誤', detail: '無法載入篩選選項' });
+      },
     });
   }
 

@@ -94,6 +94,20 @@ describe('Login', () => {
     expect(router.navigateByUrl).not.toHaveBeenCalled();
   });
 
+  it('leaves the 5xx toast to the interceptor (no second toast) when login fails, and stays on the page', () => {
+    auth.login.and.returnValue(
+      throwError(() => new HttpErrorResponse({ status: 500, error: { message: '系統發生未預期的錯誤，請稍後再試' } })),
+    );
+    const add = spyOn(messages, 'add');
+
+    fill('alice', 'bad');
+    submit();
+
+    expect(add).not.toHaveBeenCalledWith(jasmine.objectContaining({ severity: 'error' }));
+    expect(router.navigateByUrl).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.loading()).toBeFalse();
+  });
+
   it('safeReturnUrl only allows same-app paths', () => {
     expect(safeReturnUrl('/courses?x=1')).toBe('/courses?x=1');
     expect(safeReturnUrl(undefined)).toBe('/');

@@ -7,6 +7,7 @@ import { ChipModule } from 'primeng/chip';
 import { InputTextModule } from 'primeng/inputtext';
 import { UserProfile } from '../../core/auth/auth.model';
 import { AuthService } from '../../core/auth/auth.service';
+import { isServerError } from '../../core/utils/server-error';
 import {
   PASSWORD_POLICY_MESSAGE,
   passwordPolicyValidator,
@@ -62,8 +63,11 @@ export class Profile implements OnInit {
   ngOnInit(): void {
     this.auth.getProfile().subscribe({
       next: (p) => this.load(p),
-      error: (err: HttpErrorResponse) =>
-        this.messages.add({ severity: 'error', summary: '錯誤', detail: err.error?.message ?? '無法載入資料' }),
+      error: (err: HttpErrorResponse) => {
+        if (!isServerError(err)) {
+          this.messages.add({ severity: 'error', summary: '錯誤', detail: err.error?.message ?? '無法載入資料' });
+        }
+      },
     });
   }
 
@@ -92,7 +96,9 @@ export class Profile implements OnInit {
       },
       error: (err: HttpErrorResponse) => {
         this.saving.set(false);
-        this.messages.add({ severity: 'error', summary: '錯誤', detail: err.error?.message ?? '儲存失敗' });
+        if (!isServerError(err)) {
+          this.messages.add({ severity: 'error', summary: '錯誤', detail: err.error?.message ?? '儲存失敗' });
+        }
       },
     });
   }
@@ -124,7 +130,9 @@ export class Profile implements OnInit {
       },
       error: (err: HttpErrorResponse) => {
         this.changingPassword.set(false);
-        this.messages.add({ severity: 'error', summary: '錯誤', detail: err.error?.message ?? '變更密碼失敗' });
+        if (!isServerError(err)) {
+          this.messages.add({ severity: 'error', summary: '錯誤', detail: err.error?.message ?? '變更密碼失敗' });
+        }
       },
     });
   }

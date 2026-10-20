@@ -3,6 +3,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { Router, provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
+import { RowAuditService } from '../../../core/components/row-audit-badge/row-audit.service';
 import { signal } from '@angular/core';
 import { ConfirmationService, MessageService } from 'primeng/api';
 import { AuthService } from '../../../core/auth/auth.service';
@@ -62,6 +63,7 @@ describe('AppUserForm', () => {
         ConfirmationService,
         { provide: AuthService, useValue: { isAdmin } },
         { provide: AppUserService, useValue: service },
+        { provide: RowAuditService, useValue: jasmine.createSpyObj<RowAuditService>('RowAuditService', { getHistory: of([]) }) },
         { provide: LookupService, useValue: lookups },
       ],
     }).compileComponents();
@@ -137,6 +139,19 @@ describe('AppUserForm', () => {
       expect(component.saving()).toBeFalse();
       expect(router.navigate).not.toHaveBeenCalled();
     });
+
+    it('leaves the 5xx toast to the interceptor (no second toast) when saving fails', () => {
+      service.create.and.returnValue(
+        throwError(() => new HttpErrorResponse({ status: 500, error: { message: '系統發生未預期的錯誤，請稍後再試' } })),
+      );
+      const add = spyOn(messages, 'add');
+      component.form.patchValue({ userId: 'dave', userName: 'Dave' });
+      component.save();
+
+      expect(add).not.toHaveBeenCalledWith(jasmine.objectContaining({ severity: 'error' }));
+      expect(component.saving()).toBeFalse();
+      expect(router.navigate).not.toHaveBeenCalled();
+    });
   });
 
   const resetButton = () => (fixture.nativeElement as HTMLElement).querySelector('[data-action="reset-password"]');
@@ -191,5 +206,15 @@ describe('AppUserForm', () => {
       component.cancel();
       expect(router.navigate).toHaveBeenCalledWith(['/app-users', '1']);
     });
+  });
+
+  it('shows the 異動紀錄 badge only when editing an existing record', () => {
+    create();
+    expect(fixture.nativeElement.querySelector('app-row-audit-badge')).toBeNull();
+    fixture.destroy();
+
+    create('1');
+    expect(fixture.nativeElement.querySelector('.page-header .start app-row-audit-badge')).not.toBeNull();
+    expect(TestBed.inject(RowAuditService).getHistory).toHaveBeenCalledOnceWith('AppUser', '1');
   });
 });

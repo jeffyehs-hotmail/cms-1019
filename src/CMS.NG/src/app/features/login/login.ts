@@ -6,6 +6,7 @@ import { MessageService } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { AuthService } from '../../core/auth/auth.service';
+import { isServerError } from '../../core/utils/server-error';
 
 @Component({
   selector: 'app-login',
@@ -49,7 +50,7 @@ export class Login {
       error: (err: HttpErrorResponse) => {
         this.loading.set(false);
         const detail = err.status === 401 ? (err.error?.message ?? '帳號或密碼錯誤') : '登入失敗，請稍後再試';
-        this.messages.add({ severity: 'error', summary: '登入失敗', detail });
+        if (!isServerError(err)) this.messages.add({ severity: 'error', summary: '登入失敗', detail });
       },
     });
   }

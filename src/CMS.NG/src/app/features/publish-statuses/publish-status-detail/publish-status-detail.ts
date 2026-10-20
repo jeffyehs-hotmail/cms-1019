@@ -2,12 +2,14 @@ import { Component, OnInit, inject, input, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { MessageService } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
+import { RowAuditBadge } from '../../../core/components/row-audit-badge/row-audit-badge';
 import { PublishStatus } from '../publish-status.model';
 import { PublishStatusService } from '../publish-status.service';
+import { isServerError } from '../../../core/utils/server-error';
 
 @Component({
   selector: 'app-publish-status-detail',
-  imports: [ButtonModule, RouterLink],
+  imports: [ButtonModule, RouterLink, RowAuditBadge],
   templateUrl: './publish-status-detail.html',
 })
 export class PublishStatusDetail implements OnInit {
@@ -26,7 +28,7 @@ export class PublishStatusDetail implements OnInit {
       next: (status) => this.status.set(status),
       error: (err) => {
         this.notFound.set(true);
-        if (err?.status !== 404) {
+        if (err?.status !== 404 && !isServerError(err)) {
           this.messages.add({ severity: 'error', summary: '錯誤', detail: '無法載入發布狀態資料' });
         }
       },

@@ -2,6 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Router, provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
+import { RowAuditService } from '../../../core/components/row-audit-badge/row-audit.service';
 import { MessageService } from 'primeng/api';
 import { Partner } from '../partner.model';
 import { PartnerService } from '../partner.service';
@@ -39,7 +40,7 @@ describe('PartnerDetail', () => {
 
     await TestBed.configureTestingModule({
       imports: [PartnerDetail],
-      providers: [provideRouter([]), MessageService, { provide: PartnerService, useValue: service }],
+      providers: [provideRouter([]), MessageService, { provide: PartnerService, useValue: service }, { provide: RowAuditService, useValue: jasmine.createSpyObj<RowAuditService>('RowAuditService', { getHistory: of([]) }) }],
     }).compileComponents();
   });
 
@@ -69,6 +70,16 @@ describe('PartnerDetail', () => {
     expect(el.querySelector('[data-field="name"]')).toBeNull();
   });
 
+  it('leaves the 5xx toast to the interceptor (no second toast) when loading fails', () => {
+    service.getById.and.returnValue(
+      throwError(() => new HttpErrorResponse({ status: 500, error: { message: '系統發生未預期的錯誤，請稍後再試' } })),
+    );
+    const add = spyOn(TestBed.inject(MessageService), 'add');
+    create('4');
+    expect(add).not.toHaveBeenCalledWith(jasmine.objectContaining({ severity: 'error' }));
+    expect(fixture.componentInstance.notFound()).toBeTrue();
+  });
+
   it('edit() navigates to the edit page; back() to the list', () => {
     create('4');
     const router = TestBed.inject(Router);
@@ -79,5 +90,11 @@ describe('PartnerDetail', () => {
 
     fixture.componentInstance.back();
     expect(router.navigate).toHaveBeenCalledWith(['/partners']);
+  });
+
+  it('shows the 異動紀錄 badge for this record in the page header', () => {
+    const el = create('4');
+    expect(el.querySelector('.page-header .start app-row-audit-badge')).not.toBeNull();
+    expect(TestBed.inject(RowAuditService).getHistory).toHaveBeenCalledOnceWith('Partner', '4');
   });
 });

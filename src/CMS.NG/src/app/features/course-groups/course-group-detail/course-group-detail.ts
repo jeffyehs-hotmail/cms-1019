@@ -2,12 +2,14 @@ import { Component, OnInit, inject, input, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { MessageService } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
+import { RowAuditBadge } from '../../../core/components/row-audit-badge/row-audit-badge';
 import { CourseGroup } from '../course-group.model';
 import { CourseGroupService } from '../course-group.service';
+import { isServerError } from '../../../core/utils/server-error';
 
 @Component({
   selector: 'app-course-group-detail',
-  imports: [ButtonModule, RouterLink],
+  imports: [ButtonModule, RouterLink, RowAuditBadge],
   templateUrl: './course-group-detail.html',
 })
 export class CourseGroupDetail implements OnInit {
@@ -26,7 +28,7 @@ export class CourseGroupDetail implements OnInit {
       next: (group) => this.courseGroup.set(group),
       error: (err) => {
         this.notFound.set(true);
-        if (err?.status !== 404) {
+        if (err?.status !== 404 && !isServerError(err)) {
           this.messages.add({ severity: 'error', summary: '錯誤', detail: '無法載入課程群組資料' });
         }
       },

@@ -2,6 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Router, provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
+import { RowAuditService } from '../../../core/components/row-audit-badge/row-audit.service';
 import { MessageService } from 'primeng/api';
 import { CourseGroup } from '../course-group.model';
 import { CourseGroupService } from '../course-group.service';
@@ -26,7 +27,7 @@ describe('CourseGroupDetail', () => {
 
     await TestBed.configureTestingModule({
       imports: [CourseGroupDetail],
-      providers: [provideRouter([]), MessageService, { provide: CourseGroupService, useValue: service }],
+      providers: [provideRouter([]), MessageService, { provide: CourseGroupService, useValue: service }, { provide: RowAuditService, useValue: jasmine.createSpyObj<RowAuditService>('RowAuditService', { getHistory: of([]) }) }],
     }).compileComponents();
   });
 
@@ -48,6 +49,16 @@ describe('CourseGroupDetail', () => {
     expect(el.querySelector('[data-field="description"]')).toBeNull();
   });
 
+  it('leaves the 5xx toast to the interceptor (no second toast) when loading fails', () => {
+    service.getById.and.returnValue(
+      throwError(() => new HttpErrorResponse({ status: 500, error: { message: '系統發生未預期的錯誤，請稍後再試' } })),
+    );
+    const add = spyOn(TestBed.inject(MessageService), 'add');
+    create('46');
+    expect(add).not.toHaveBeenCalledWith(jasmine.objectContaining({ severity: 'error' }));
+    expect(fixture.componentInstance.notFound()).toBeTrue();
+  });
+
   it('edit() navigates to the edit page; back() to the list', () => {
     create('46');
     const router = TestBed.inject(Router);
@@ -58,5 +69,11 @@ describe('CourseGroupDetail', () => {
 
     fixture.componentInstance.back();
     expect(router.navigate).toHaveBeenCalledWith(['/course-groups']);
+  });
+
+  it('shows the 異動紀錄 badge for this record in the page header', () => {
+    const el = create('46');
+    expect(el.querySelector('.page-header .start app-row-audit-badge')).not.toBeNull();
+    expect(TestBed.inject(RowAuditService).getHistory).toHaveBeenCalledOnceWith('CourseGroup', '46');
   });
 });

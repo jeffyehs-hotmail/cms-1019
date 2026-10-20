@@ -6,8 +6,10 @@ using Dapper;
 
 namespace CMS.API.Repositories;
 
-public class PartnerRepository(IDbConnectionFactory db) : IPartnerRepository
+public class PartnerRepository(IDbConnectionFactory db, RowAuditWriter audit) : IPartnerRepository
 {
+    private const string Table = "Partner";
+
     private const string SelectSql = """
         SELECT p.pkid, p.Name, p.AppKey, p.NameOnPartnerMenu, p.NameOnCourseDetailPage, p.DisplayOrder, p.ImageFilename,
                (SELECT COUNT(*) FROM Course c WHERE c.Partner_pkid = p.pkid) AS CourseCount,
@@ -61,29 +63,52 @@ public class PartnerRepository(IDbConnectionFactory db) : IPartnerRepository
     public async Task<short> CreateAsync(PartnerRequest request)
     {
         using var conn = await db.OpenAsync();
-        return await conn.ExecuteScalarAsync<short>("""
+        using var tx = conn.BeginTransaction();
+
+        var pkid = await conn.ExecuteScalarAsync<short>("""
             INSERT INTO Partner (Name, AppKey, NameOnPartnerMenu, NameOnCourseDetailPage, DisplayOrder, ImageFilename)
             VALUES (@Name, @AppKey, @NameOnPartnerMenu, @NameOnCourseDetailPage, @DisplayOrder, @ImageFilename);
             SELECT CAST(SCOPE_IDENTITY() AS smallint);
-            """, ToParams(request));
+            """, ToParams(request), tx);
+
+        await audit.LogInsertAsync(Table, (await RowAuditWriter.LoadRowAsync(tx, Table, pkid))!, tx);
+        tx.Commit();
+        return pkid;
     }
 
     public async Task<bool> UpdateAsync(PartnerRequest request)
     {
         using var conn = await db.OpenAsync();
-        var rows = await conn.ExecuteAsync("""
+        using var tx = conn.BeginTransaction();
+
+        var before = await RowAuditWriter.LoadRowAsync(tx, Table, request.Pkid);
+        if (before is null) return false;
+
+        await conn.ExecuteAsync("""
             UPDATE Partner
             SET Name = @Name, AppKey = @AppKey, NameOnPartnerMenu = @NameOnPartnerMenu,
                 NameOnCourseDetailPage = @NameOnCourseDetailPage, DisplayOrder = @DisplayOrder, ImageFilename = @ImageFilename
             WHERE pkid = @Pkid
-            """, ToParams(request));
-        return rows > 0;
+            """, ToParams(request), tx);
+
+        await audit.LogUpdateAsync(Table, before, (await RowAuditWriter.LoadRowAsync(tx, Table, request.Pkid))!, tx);
+        tx.Commit();
+        return true;
     }
 
     public async Task<bool> DeleteAsync(short pkid)
     {
         using var conn = await db.OpenAsync();
-        return await conn.ExecuteAsync("DELETE FROM Partner WHERE pkid = @pkid", new { pkid }) > 0;
+        using var tx = conn.BeginTransaction();
+
+        var row = await RowAuditWriter.LoadRowAsync(tx, Table, pkid);
+        if (row is null) return false;
+
+        await conn.ExecuteAsync("DELETE FROM Partner WHERE pkid = @pkid", new { pkid }, tx);
+
+        await audit.LogDeleteAsync(Table, row, tx);
+        tx.Commit();
+        return true;
     }
 
     // AppKey / ImageFilename are varchar — send them as AnsiString rather than nvarchar.

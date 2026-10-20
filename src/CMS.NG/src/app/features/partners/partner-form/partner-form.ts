@@ -6,15 +6,17 @@ import { MessageService } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
 import { InputNumberModule } from 'primeng/inputnumber';
 import { InputTextModule } from 'primeng/inputtext';
+import { RowAuditBadge } from '../../../core/components/row-audit-badge/row-audit-badge';
 import { Partner, PartnerRequest } from '../partner.model';
 import { PartnerService } from '../partner.service';
+import { isServerError } from '../../../core/utils/server-error';
 
 /** varchar columns (AppKey, ImageFilename): printable ASCII only. */
 const ASCII = /^[\x20-\x7E]*$/;
 
 @Component({
   selector: 'app-partner-form',
-  imports: [ReactiveFormsModule, ButtonModule, InputNumberModule, InputTextModule],
+  imports: [ReactiveFormsModule, ButtonModule, InputNumberModule, InputTextModule, RowAuditBadge],
   templateUrl: './partner-form.html',
 })
 export class PartnerForm implements OnInit {
@@ -43,7 +45,9 @@ export class PartnerForm implements OnInit {
 
     this.service.getById(Number(this.id())).subscribe({
       next: (partner) => this.patch(partner),
-      error: () => this.messages.add({ severity: 'error', summary: '錯誤', detail: '無法載入資料' }),
+      error: (err: unknown) => {
+        if (!isServerError(err)) this.messages.add({ severity: 'error', summary: '錯誤', detail: '無法載入資料' });
+      },
     });
   }
 
@@ -100,7 +104,7 @@ export class PartnerForm implements OnInit {
       error: (err: HttpErrorResponse) => {
         this.saving.set(false);
         const detail = err.status === 409 ? (err.error?.message ?? '應用代碼已存在') : '儲存失敗';
-        this.messages.add({ severity: 'error', summary: '錯誤', detail });
+        if (!isServerError(err)) this.messages.add({ severity: 'error', summary: '錯誤', detail });
       },
     });
   }

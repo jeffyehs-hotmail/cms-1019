@@ -2,7 +2,9 @@ import { TestBed } from '@angular/core/testing';
 import { HttpClient, provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { Router, provideRouter } from '@angular/router';
+import { MessageService } from 'primeng/api';
 import { environment } from '@env/environment';
+import { SERVER_ERROR_MESSAGE } from '../utils/server-error';
 import { authInterceptor } from './auth.interceptor';
 import { AUTH_PROFILE_KEY, AuthService } from './auth.service';
 
@@ -12,6 +14,7 @@ describe('authInterceptor', () => {
   let http: HttpClient;
   let backend: HttpTestingController;
   let router: Router;
+  let messages: MessageService;
 
   beforeEach(() => {
     sessionStorage.clear();
@@ -20,11 +23,13 @@ describe('authInterceptor', () => {
         provideHttpClient(withInterceptors([authInterceptor])),
         provideHttpClientTesting(),
         provideRouter([]),
+        MessageService,
       ],
     });
     http = TestBed.inject(HttpClient);
     backend = TestBed.inject(HttpTestingController);
     router = TestBed.inject(Router);
+    messages = TestBed.inject(MessageService);
   });
 
   afterEach(() => {
@@ -79,6 +84,17 @@ describe('authInterceptor', () => {
     expect(status).toBe(401); // the caller still sees the error
   });
 
+  it('on 401 shows no toast (the login page takes over)', () => {
+    signIn();
+    spyOn(router, 'navigate').and.resolveTo(true);
+    const add = spyOn(messages, 'add');
+
+    http.get(api).subscribe({ error: () => {} });
+    backend.expectOne(api).flush({ message: '請先登入' }, { status: 401, statusText: 'Unauthorized' });
+
+    expect(add).not.toHaveBeenCalled();
+  });
+
   it('leaves the session alone on a failed login (401 from the login endpoint) and on other errors', () => {
     signIn();
     const navigate = spyOn(router, 'navigate');
@@ -92,5 +108,67 @@ describe('authInterceptor', () => {
 
     expect(sessionStorage.getItem(AUTH_PROFILE_KEY)).not.toBeNull();
     expect(navigate).not.toHaveBeenCalled();
+  });
+
+  describe('5xx', () => {
+    it('toasts the safe message from the response body and still passes the error on', () => {
+      signIn();
+      const add = spyOn(messages, 'add');
+      const navigate = spyOn(router, 'navigate');
+      let status = 0;
+
+      http.get(api).subscribe({ error: (e) => (status = e.status) });
+      backend
+        .expectOne(api)
+        .flush({ message: '系統發生未預期的錯誤，請稍後再試' }, { status: 500, statusText: 'Internal Server Error' });
+
+      expect(add).toHaveBeenCalledOnceWith({
+        severity: 'error',
+        summary: '系統錯誤',
+        detail: '系統發生未預期的錯誤，請稍後再試',
+      });
+      expect(status).toBe(500);
+      expect(navigate).not.toHaveBeenCalled();
+      expect(sessionStorage.getItem(AUTH_PROFILE_KEY)).not.toBeNull(); // still signed in
+    });
+
+    it('falls back to the generic message when a 5xx has no { message } (e.g. a gateway error page)', () => {
+      const add = spyOn(messages, 'add');
+
+      http.get(api).subscribe({ error: () => {} });
+      backend.expectOne(api).flush('<html>Bad Gateway</html>', { status: 502, statusText: 'Bad Gateway' });
+      http.get(api).subscribe({ error: () => {} });
+      backend.expectOne(api).flush(null, { status: 503, statusText: 'Service Unavailable' });
+
+      expect(add.calls.allArgs()).toEqual([
+        [{ severity: 'error', summary: '系統錯誤', detail: SERVER_ERROR_MESSAGE }],
+        [{ severity: 'error', summary: '系統錯誤', detail: SERVER_ERROR_MESSAGE }],
+      ]);
+    });
+
+    it('also toasts a 5xx from the login endpoint', () => {
+      const add = spyOn(messages, 'add');
+
+      http.post(`${environment.apiUrl}/auth/login`, {}).subscribe({ error: () => {} });
+      backend
+        .expectOne(`${environment.apiUrl}/auth/login`)
+        .flush({ message: 'x' }, { status: 500, statusText: 'Internal Server Error' });
+
+      expect(add).toHaveBeenCalledOnceWith(jasmine.objectContaining({ detail: 'x' }));
+    });
+
+    it('leaves 400 / 403 / 404 / 409 to the caller and ignores other hosts', () => {
+      signIn();
+      const add = spyOn(messages, 'add');
+
+      for (const status of [400, 403, 404, 409]) {
+        http.get(api).subscribe({ error: () => {} });
+        backend.expectOne(api).flush({ message: 'x' }, { status, statusText: 'x' });
+      }
+      http.get('https://example.com/data').subscribe({ error: () => {} });
+      backend.expectOne('https://example.com/data').flush(null, { status: 500, statusText: 'x' });
+
+      expect(add).not.toHaveBeenCalled();
+    });
   });
 });

@@ -3,6 +3,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { Router, provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
+import { RowAuditService } from '../../../core/components/row-audit-badge/row-audit.service';
 import { Confirmation, ConfirmationService, MessageService } from 'primeng/api';
 import { Course } from '../course.model';
 import { CourseService } from '../course.service';
@@ -52,6 +53,7 @@ describe('CourseDetail', () => {
         ConfirmationService,
         MessageService,
         { provide: CourseService, useValue: service },
+        { provide: RowAuditService, useValue: jasmine.createSpyObj<RowAuditService>('RowAuditService', { getHistory: of([]) }) },
       ],
     }).compileComponents();
     confirmation = TestBed.inject(ConfirmationService);
@@ -130,6 +132,17 @@ describe('CourseDetail', () => {
     expect(el.querySelector('[data-field="courseId"]')).toBeNull();
   });
 
+  it('leaves the 5xx toast to the interceptor (no second toast) when loading fails', () => {
+    service.getById.and.returnValue(
+      throwError(() => new HttpErrorResponse({ status: 500, error: { message: '系統發生未預期的錯誤，請稍後再試' } })),
+    );
+    const add = spyOn(TestBed.inject(MessageService), 'add');
+    create();
+
+    expect(add).not.toHaveBeenCalledWith(jasmine.objectContaining({ severity: 'error' }));
+    expect(fixture.componentInstance.notFound()).toBeTrue();
+  });
+
   it('deletes after confirmation and returns to the list', () => {
     create();
     spyOn(confirmation, 'confirm').and.callFake((c: Confirmation) => {
@@ -151,5 +164,11 @@ describe('CourseDetail', () => {
     fixture.componentInstance.confirmDelete({ ...course, hotCourseCount: 1 });
 
     expect(confirm).not.toHaveBeenCalled();
+  });
+
+  it('shows the 異動紀錄 badge for this record in the page header', () => {
+    const el = create();
+    expect(el.querySelector('.page-header .start app-row-audit-badge')).not.toBeNull();
+    expect(TestBed.inject(RowAuditService).getHistory).toHaveBeenCalledOnceWith('Course', '42');
   });
 });

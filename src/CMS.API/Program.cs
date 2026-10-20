@@ -1,4 +1,5 @@
 using CMS.API.Data;
+using CMS.API.Middleware;
 using CMS.API.Repositories;
 using CMS.API.Security;
 using Microsoft.OpenApi.Models;
@@ -50,10 +51,16 @@ builder.Services.AddScoped<IFeaturedPromoItemRepository, FeaturedPromoItemReposi
 builder.Services.AddScoped<ILookupRepository, LookupRepository>();
 builder.Services.AddScoped<IAuthRepository, AuthRepository>();
 builder.Services.AddScoped<IAgentTokenUsageRepository, AgentTokenUsageRepository>();
+builder.Services.AddScoped<IRowAuditRepository, RowAuditRepository>();
+builder.Services.AddScoped<RowAuditWriter>();
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddCmsJwtAuthentication();
 
 var app = builder.Build();
+
+// First in the pipeline so an exception anywhere below becomes a generic 500 { message } (details only in the log).
+app.UseMiddleware<UnhandledExceptionMiddleware>();
 
 app.UseSwagger();
 app.UseSwaggerUI(c =>

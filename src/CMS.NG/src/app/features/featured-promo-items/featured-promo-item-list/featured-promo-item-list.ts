@@ -12,6 +12,7 @@ import { readSession, writeSession } from '../../../core/utils/session-state';
 import { FeaturedPromoItemForm } from '../featured-promo-item-form/featured-promo-item-form';
 import { FeaturedPromoItem, MAX_SLOT, PromoContent } from '../featured-promo-item.model';
 import { FeaturedPromoItemService } from '../featured-promo-item.service';
+import { isServerError } from '../../../core/utils/server-error';
 
 export const FILTERS_KEY = 'featured-promo-item-list-filters';
 
@@ -96,7 +97,9 @@ export class FeaturedPromoItemList implements OnInit {
         this.centerPkid.set(keep ? saved.trainingCenterPkid : (centers[0]?.pkid ?? null));
         this.load();
       },
-      error: () => this.messages.add({ severity: 'error', summary: '錯誤', detail: '無法載入訓練中心' }),
+      error: (err: unknown) => {
+        if (!isServerError(err)) this.messages.add({ severity: 'error', summary: '錯誤', detail: '無法載入訓練中心' });
+      },
     });
   }
 
@@ -111,9 +114,9 @@ export class FeaturedPromoItemList implements OnInit {
         this.items.set(rows);
         this.loading.set(false);
       },
-      error: () => {
+      error: (err: unknown) => {
         this.loading.set(false);
-        this.messages.add({ severity: 'error', summary: '錯誤', detail: '無法載入上稿資料' });
+        if (!isServerError(err)) this.messages.add({ severity: 'error', summary: '錯誤', detail: '無法載入上稿資料' });
       },
     });
   }
@@ -182,8 +185,11 @@ export class FeaturedPromoItemList implements OnInit {
       direction === 'up' ? this.service.moveUp(item.pkid) : this.service.moveDown(item.pkid);
     call.subscribe({
       next: () => this.load(),
-      error: (err: HttpErrorResponse) =>
-        this.messages.add({ severity: 'error', summary: '錯誤', detail: err.error?.message ?? '移動失敗' }),
+      error: (err: HttpErrorResponse) => {
+        if (!isServerError(err)) {
+          this.messages.add({ severity: 'error', summary: '錯誤', detail: err.error?.message ?? '移動失敗' });
+        }
+      },
     });
   }
 
@@ -206,7 +212,9 @@ export class FeaturedPromoItemList implements OnInit {
         this.messages.add({ severity: 'success', summary: '已刪除', detail: `${item.scheduleOn} 第 ${item.slot} 則已刪除` });
         this.load();
       },
-      error: () => this.messages.add({ severity: 'error', summary: '錯誤', detail: '刪除失敗' }),
+      error: (err: unknown) => {
+        if (!isServerError(err)) this.messages.add({ severity: 'error', summary: '錯誤', detail: '刪除失敗' });
+      },
     });
   }
 }
