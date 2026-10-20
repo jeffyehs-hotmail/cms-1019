@@ -50,3 +50,44 @@
   justify-content: flex-end;
   gap: 0.5rem;
 }
+
+// ---- In-place cell editing ----
+
+.row-saving {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+td.editable {
+  cursor: cell;
+
+  &:hover:not(.cell-editing) {
+    box-shadow: inset 0 0 0 1px var(--p-primary-200);
+  }
+}
+
+td.cell-editing {
+  padding: 0.25rem 0.5rem;
+  vertical-align: top;
+}
+
+.col-status {
+  min-width: 10rem;
+}
+
+.col-date {
+  min-width: 11rem;
+}
+
+.cell-input {
+  width: 100%;
+  min-width: 6rem;
+}
+
+.cell-error {
+  display: block;
+  margin-top: 0.25rem;
+  color: var(--p-red-500);
+  font-size: 0.75rem;
+  white-space: normal;
+}

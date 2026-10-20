@@ -51,6 +51,7 @@ Per-feature decisions that aren't obvious from the code. Read the section for a 
 - New form defaults: ScheduleOn = today, ScheduleOff = Dec 31 of next year.
 - Lookups: `certifications` (`{ pkid, title, partnerName }`), `job-categories`, `courses` (`{ pkid, courseId, title }`).
 - Detail page 基本資料 shows a QR code (`<app-qr-code>`) of the public page `https://www.uuu.com.tw/Course/Show/{pkid}/{CourseId}` (`COURSE_SITE_URL` in `course-detail.ts`; CourseId is URL-encoded), titled with the CourseId and downloadable as `{CourseId}.png`.
+- **List page in-place editing** (`course-inline-edit.ts`): double-click any cell except 主代碼 / 原廠 / 課程群組; saved on blur (Enter commits, Escape cancels). Because list rows omit the long texts and n-n arrays and PUT replaces everything, a save does `getById` → `toCourseRequest(full, patch)` → `update`. Client validation mirrors the form/API (required, ASCII codes, non-negative numbers, 定價 integer, 點數 one decimal, valid dates, 上架日期 ≤ 下架日期) and keeps the cell open with an inline `.cell-error`; API 400/409 reverts the row and toasts `message`. 上架狀態 edits load the lookups on first use.
 - Not built (from `spec/sample1.spec.md`): copy, print to PDF, CourseRelatedLink / CourseRecomm sub-panels.
 
 ## FeaturedPromoItem — 首頁 Home › 上稿作業 (`database/promotion.sql`, `spec/custom/FeaturedPromoItem/`)

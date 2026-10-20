@@ -103,6 +103,28 @@ describe('CourseForm', () => {
     expect(scheduleOff!.getDate()).toBe(31);
   });
 
+  for (const mode of ['new', 'edit'] as const) {
+    it(`${mode}: the action toolbar is pinned (sticky) above the form with 儲存 and 取消`, () => {
+      create(mode === 'edit' ? '42' : undefined);
+
+      const toolbar = fixture.nativeElement.querySelector('form > .page-header') as HTMLElement;
+      expect(toolbar).withContext('toolbar').not.toBeNull();
+      expect(toolbar.classList).toContain('sticky-toolbar');
+      const style = getComputedStyle(toolbar);
+      expect(style.position).toBe('sticky');
+      expect(style.top).toBe('0px');
+      expect(Number(style.zIndex)).toBeGreaterThan(0);
+      // The toolbar precedes the form body in DOM order, so it stays on top of the cards.
+      expect(toolbar.nextElementSibling?.classList).toContain('page-card');
+
+      const labels = Array.from(toolbar.querySelectorAll('button')).map((b) => b.textContent?.trim());
+      expect(labels).toContain('儲存');
+      expect(labels).toContain('取消');
+      expect(toolbar.querySelector('button[type="submit"]')?.textContent).toContain('儲存');
+      expect(toolbar.querySelector('h1')?.textContent).toBe(mode === 'edit' ? '編輯課程' : '新增課程');
+    });
+  }
+
   it('enforces required fields', () => {
     create();
     component.form.patchValue({ scheduleOn: null, scheduleOff: null });

@@ -5,7 +5,7 @@ import { Router, provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { Confirmation, ConfirmationService, MessageService } from 'primeng/api';
 import { LookupService } from '../../../core/services/lookup.service';
-import { Course } from '../course.model';
+import { Course, CourseRequest } from '../course.model';
 import { CourseService } from '../course.service';
 import { CourseList, FILTERS_KEY, PAGE_KEY, SORT_KEY } from './course-list';
 
@@ -34,7 +34,7 @@ describe('CourseList', () => {
     ...base, pkid: 42, courseId: 'CCNA', prodCourseId: 'CCNA', title: 'CCNA 網路', displayOrder: 2,
     partnerPkid: 3, partnerName: 'Cisco', courseRelatedLinkCount: 2,
   };
-  // p-table sorts [value] in place, so tests reference rows by name, not index.
+  // p-table sorts [value] in place and inline edits mutate rows, so query returns copies and tests reference rows by pkid.
   const courses: Course[] = [az, ccna];
 
   async function create(params: Record<string, string> = {}): Promise<void> {
@@ -55,8 +55,8 @@ describe('CourseList', () => {
 
   beforeEach(async () => {
     sessionStorage.clear();
-    service = jasmine.createSpyObj<CourseService>('CourseService', ['query', 'delete']);
-    service.query.and.callFake(() => of([...courses]));
+    service = jasmine.createSpyObj<CourseService>('CourseService', ['query', 'delete', 'getById', 'update']);
+    service.query.and.callFake(() => of(courses.map((c) => ({ ...c }))));
     service.delete.and.returnValue(of(undefined));
     lookups = jasmine.createSpyObj<LookupService>('LookupService', [
       'getPartners',
@@ -234,5 +234,255 @@ describe('CourseList', () => {
     const nav = spyOn(TestBed.inject(Router), 'navigate');
     component.add();
     expect(nav).toHaveBeenCalledWith(['/courses/new']);
+  });
+  describe('in-place editing', () => {
+    // Column order in the list table.
+    const COL = {
+      pkid: 0, displayOrder: 1, courseId: 2, prodCourseId: 3, title: 4, partner: 5, courseGroup: 6,
+      status: 7, scheduleOn: 8, scheduleOff: 9, hour: 10, listPrice: 11, learningCredit: 12, canRepeat: 13,
+    };
+    const full: Course = {
+      ...az, outline: 'long outline', note: 'a note',
+      certifications: [{ pkid: 7, title: 'AZ-104', partnerName: 'Microsoft' }],
+      jobCategories: [{ pkid: 2, description: 'IT' }],
+    };
+
+    /** The live row object (query returns copies, so edits never touch the shared fixtures). */
+    function row(pkid: number): Course {
+      return component.courses().find((c) => c.pkid === pkid)!;
+    }
+
+    function cell(pkid: number, col: number): HTMLTableCellElement {
+      const rows = Array.from(fixture.nativeElement.querySelectorAll('tbody tr') as NodeListOf<HTMLTableRowElement>);
+      const row = rows.find((r) => r.cells[0].textContent?.trim() === String(pkid))!;
+      return row.cells[col];
+    }
+
+    function fire(el: Element, type: string): void {
+      el.dispatchEvent(new MouseEvent(type, { bubbles: true }));
+    }
+
+    async function settle(): Promise<void> {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+    }
+
+    async function openCell(pkid: number, col: number): Promise<HTMLTableCellElement> {
+      fire(cell(pkid, col), 'dblclick');
+      await settle();
+      return cell(pkid, col);
+    }
+
+    /** Type into the open text editor and blur it (the save trigger). */
+    async function typeAndBlur(td: HTMLTableCellElement, value: string): Promise<void> {
+      const input = td.querySelector('input') as HTMLInputElement;
+      input.value = value;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      await settle();
+      input.dispatchEvent(new Event('blur'));
+      await settle();
+    }
+
+    beforeEach(async () => {
+      service.getById.and.callFake(() => of({ ...full }));
+      service.update.and.callFake((r: CourseRequest) => of({ ...full, ...r } as Course));
+      await create();
+    });
+
+    it('double-click opens an editor; single click does not', async () => {
+      const td = cell(10, COL.title);
+      fire(td, 'click');
+      await settle();
+      expect(component.editing()).toBeNull();
+      expect(td.querySelector('input')).toBeNull();
+
+      fire(td, 'dblclick');
+      await settle();
+      expect(component.editing()).toEqual({ pkid: 10, field: 'title' });
+      const input = cell(10, COL.title).querySelector('input') as HTMLInputElement;
+      expect(input).not.toBeNull();
+      expect(input.value).toBe('Azure 管理');
+      expect(cell(10, COL.title).classList).toContain('cell-editing');
+    });
+
+    it('主代碼, 原廠 and 課程群組 cannot be edited', async () => {
+      for (const col of [COL.pkid, COL.partner, COL.courseGroup]) {
+        const td = cell(10, col);
+        expect(td.classList).not.toContain('editable');
+        fire(td, 'dblclick');
+        await settle();
+        expect(component.editing()).toBeNull();
+        expect(td.querySelector('input, p-select')).toBeNull();
+      }
+      // Every other column is editable.
+      const editable = Array.from(cell(10, COL.pkid).parentElement!.querySelectorAll('td.editable'));
+      expect(editable.length).toBe(11);
+    });
+
+    it('uses the input type that matches the column', async () => {
+      expect((await openCell(10, COL.hour)).querySelector('p-inputnumber')).not.toBeNull();
+      component.cancelEdit();
+      expect((await openCell(10, COL.scheduleOn)).querySelector('p-datepicker')).not.toBeNull();
+      component.cancelEdit();
+      expect((await openCell(10, COL.status)).querySelector('p-select')).not.toBeNull();
+      expect(lookups.getPublishStatuses).toHaveBeenCalledTimes(1);
+      component.cancelEdit();
+      expect((await openCell(10, COL.canRepeat)).querySelector('p-checkbox')).not.toBeNull();
+    });
+
+    it('blur fetches the full record and PUTs it with only the edited field changed', async () => {
+      const td = await openCell(10, COL.title);
+      const add = spyOn(messages, 'add');
+
+      await typeAndBlur(td, ' Azure 進階 ');
+
+      expect(service.getById).toHaveBeenCalledWith(10);
+      expect(service.update).toHaveBeenCalledTimes(1);
+      const req = service.update.calls.mostRecent().args[0];
+      expect(req).toEqual(jasmine.objectContaining({
+        pkid: 10, title: 'Azure 進階', courseId: 'AZ104', outline: 'long outline', note: 'a note',
+        certificationPkids: [7], jobCategoryPkids: [2],
+      }));
+      expect(component.editing()).toBeNull();
+      expect(cell(10, COL.title).textContent?.trim()).toBe('Azure 進階');
+      expect(component.savingPkids().size).toBe(0);
+      expect(add).toHaveBeenCalledWith(jasmine.objectContaining({ severity: 'success' }));
+    });
+
+    it('an unchanged value closes the cell without calling the API', async () => {
+      const td = await openCell(10, COL.title);
+      await typeAndBlur(td, 'Azure 管理');
+      expect(service.getById).not.toHaveBeenCalled();
+      expect(service.update).not.toHaveBeenCalled();
+      expect(component.editing()).toBeNull();
+    });
+
+    it('a required field cannot be cleared: inline error, cell stays open, no save', async () => {
+      const td = await openCell(10, COL.title);
+      await typeAndBlur(td, '   ');
+
+      expect(service.update).not.toHaveBeenCalled();
+      expect(component.editing()).toEqual({ pkid: 10, field: 'title' });
+      const err = cell(10, COL.title).querySelector('.cell-error');
+      expect(err?.textContent).toContain('請輸入課程名稱');
+      expect(cell(10, COL.title).querySelector('input')).not.toBeNull();
+      expect(row(10).title).toBe('Azure 管理');
+    });
+
+    it('a failed validation also blocks double-clicking into another cell', async () => {
+      const td = await openCell(10, COL.title);
+      await typeAndBlur(td, '');
+      fire(cell(42, COL.title), 'dblclick');
+      await settle();
+      expect(component.editing()).toEqual({ pkid: 10, field: 'title' });
+      expect(cell(42, COL.title).querySelector('input')).toBeNull();
+    });
+
+    it('numeric fields must be non-negative numbers', async () => {
+      await openCell(10, COL.hour);
+      component.editValue = -1;
+      component.commit();
+      await settle();
+      expect(component.editError()).toBe('時數不可為負數');
+      expect(cell(10, COL.hour).querySelector('.cell-error')?.textContent).toContain('不可為負數');
+      expect(component.editing()).toEqual({ pkid: 10, field: 'hour' });
+
+      component.editValue = null;
+      component.commit();
+      expect(component.editError()).toBe('請輸入時數');
+
+      component.editValue = 40;
+      component.commit();
+      await settle();
+      expect(service.update.calls.mostRecent().args[0].hour).toBe(40);
+      expect(component.editing()).toBeNull();
+    });
+
+    it('date fields must be valid dates', async () => {
+      await openCell(10, COL.scheduleOff);
+      component.editValue = '2026/13/99'; // keepInvalid leaves unparsable text in the model
+      component.commit();
+      await settle();
+      expect(component.editError()).toBe('日期格式不正確');
+      expect(component.editing()).toEqual({ pkid: 10, field: 'scheduleOff' });
+      expect(service.update).not.toHaveBeenCalled();
+
+      component.editValue = new Date(2028, 5, 30);
+      component.commit();
+      await settle();
+      expect(service.update.calls.mostRecent().args[0].scheduleOff).toBe('2028-06-30');
+    });
+
+    it('上架日期 must not be after 下架日期', async () => {
+      await openCell(10, COL.scheduleOn);
+      component.editValue = new Date(2028, 0, 1); // scheduleOff is 2027-12-31
+      component.commit();
+      expect(component.editError()).toBe('下架日期不可早於上架日期');
+      expect(service.update).not.toHaveBeenCalled();
+      component.cancelEdit();
+
+      await openCell(10, COL.scheduleOff);
+      component.editValue = new Date(2025, 11, 31); // before scheduleOn 2026-01-01
+      component.commit();
+      expect(component.editError()).toBe('下架日期不可早於上架日期');
+      expect(service.update).not.toHaveBeenCalled();
+    });
+
+    it('overlay editors ignore the blur caused by opening their panel', async () => {
+      await openCell(10, COL.status);
+      component.editValue = 3;
+      component.onOverlayBlur({ overlayVisible: true });
+      expect(component.editing()).not.toBeNull();
+      expect(service.update).not.toHaveBeenCalled();
+
+      component.onOverlayBlur({ overlayVisible: false });
+      await settle();
+      expect(service.update.calls.mostRecent().args[0].publishStatusPkid).toBe(3);
+      expect(component.editing()).toBeNull();
+    });
+
+    it('reverts the cell and toasts the API message when the save fails', async () => {
+      service.update.and.returnValue(
+        throwError(() => new HttpErrorResponse({ status: 409, error: { message: "簡介代碼 'CCNA' 已存在" } })),
+      );
+      const add = spyOn(messages, 'add');
+      const td = await openCell(10, COL.courseId);
+
+      await typeAndBlur(td, 'CCNA');
+
+      expect(service.update).toHaveBeenCalled();
+      expect(component.editing()).toBeNull();
+      expect(row(10).courseId).toBe('AZ104');
+      expect(cell(10, COL.courseId).textContent?.trim()).toBe('AZ104');
+      expect(component.savingPkids().size).toBe(0);
+      expect(add).toHaveBeenCalledWith(jasmine.objectContaining({ severity: 'error', detail: "簡介代碼 'CCNA' 已存在" }));
+    });
+
+    it('reverts with a generic message on a server error', async () => {
+      service.update.and.returnValue(throwError(() => new HttpErrorResponse({ status: 500 })));
+      const add = spyOn(messages, 'add');
+      await openCell(10, COL.hour);
+      component.editValue = 99;
+      component.commit();
+      await settle();
+
+      expect(row(10).hour).toBe(32);
+      expect(add).toHaveBeenCalledWith(jasmine.objectContaining({ severity: 'error', detail: '儲存失敗' }));
+    });
+
+    it('Escape cancels without saving', async () => {
+      const td = await openCell(10, COL.title);
+      const input = td.querySelector('input') as HTMLInputElement;
+      input.value = 'changed';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      await settle();
+
+      expect(component.editing()).toBeNull();
+      expect(service.update).not.toHaveBeenCalled();
+      expect(row(10).title).toBe('Azure 管理');
+      expect(cell(10, COL.title).querySelector('input')).toBeNull();
+    });
   });
 });

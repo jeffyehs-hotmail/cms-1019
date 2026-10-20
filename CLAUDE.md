@@ -1,27 +1,16 @@
 # CLAUDE.md
 
-Full-stack CMS: .NET 9 Web API (Dapper) + Angular 20 (standalone, PrimeNG 20), over an existing SQL Server database. UI text is Traditional Chinese.
+Full-stack CMS: .NET 9 Web API (Dapper) + Angular 20 (standalone, PrimeNG 20) over an existing SQL Server database. UI text is Traditional Chinese. This file is an index; the details live in `docs/claude/`.
 
-## Reference docs (read when relevant)
+## Reference docs (read before the matching work)
 
 | File | Read when |
 |---|---|
-| `docs/claude/backend.md` | Adding/changing API code or backend tests: key types, FK/n-n/delete-guard patterns, column handling, validation, fakes |
-| `docs/claude/frontend.md` | Adding/changing UI or Angular tests: list/drawer/form patterns, child-list links, sidebar, custom pages (tabs, inline editor, autocomplete), shared components (QR code), spec conventions |
+| `docs/claude/workspace.md` | Running or smoke-testing the apps, querying the DB, finding specs, tool quirks |
+| `docs/claude/backend.md` | Adding/changing API code or backend tests |
+| `docs/claude/frontend.md` | Adding/changing UI or Angular tests (lists, forms, in-place editing, pinned toolbar, custom pages, specs) |
 | `docs/claude/features.md` | Changing an existing feature or one FK-related to it: per-table decisions, live-data facts, deferred work |
-| `spec/code-gen.convention.md` | Scaffolding a new feature (with the two above) |
-
-## Layout
-
-| Path | What |
-|---|---|
-| `database/*.sql` | Schema of the existing `CMS` database (source of truth for models) |
-| `spec/feature-spec.template.md`, `spec/sample*.spec.md` | Spec template and examples. `sample1.spec.md` is aspirational (mentions ClassSection, `spec/dapper.md`, `AuditHelper`, copy/QR/PDF, none of which exist): use it for format only |
-| `spec/{sub-system}/{Table}.md` | Per-feature specs from `/crud` (re-running `/crud` reuses an existing spec) |
-| `spec/custom/{Table}/` | User-written specs + UI screenshots for custom (non-template) pages. The screenshots are the actual layout to build |
-| `spec/ui-sample-*.png` | UI style reference only |
-| `src/CMS.sln`, `src/global.json` | Solution; `global.json` pins the .NET 9 SDK (machine default is 10) |
-| `src/CMS.API`, `src/CMS.API.Tests`, `src/CMS.NG` | Web API, xUnit tests, Angular app |
+| `spec/code-gen.convention.md` | Scaffolding a new feature with `/crud` (plus the three above) |
 
 ## Commands
 
@@ -33,34 +22,28 @@ cd src/CMS.NG && npm run test:ci            # headless Karma, single run
 cd src/CMS.NG && npx ng build               # production build (checks budgets)
 ```
 
-DB: `Server=.\SQLEXPRESS;Database=CMS;Trusted_Connection=True` (`CMS.API/appsettings.json`, `ConnectionStrings:CMS`). Query: `sqlcmd -S '.\SQLEXPRESS' -E -C -d CMS -Q "..."`.
+## Conventions
 
-## Core conventions
-
-- Backend per table: `Models/{Table}.cs` + `{Table}Request.cs` + `{Table}Query.cs` → `Repositories/I{Table}Repository` + impl (Dapper, async, transactions for multi-statement writes) → DI in `Program.cs` → `Controllers/{Table}sController` at `api/{kebab-plural}`, lookups at `api/lookups/{kebab-plural}`. JSON is camelCase.
-- 409 and business-rule 400 responses carry `{ message }` (Traditional Chinese), and the frontend toasts it.
-- Frontend per table: `src/app/features/{kebab-plural}/` with list/detail/form folders (a custom page from `spec/custom/` replaces these with its own components), `{table}.model.ts`, `{table}.service.ts`. No `.component` suffix. Signals, `inject()`, `@if`/`@for`. Lazy routes in `app.routes.ts`; sidebar in `navGroups` (`app.ts`). Reusable UI goes in `core/components/{name}/` (e.g. `qr-code`), not in a feature folder.
-- Third-party npm packages: pin exact versions (`npm install qrcode@1.5.4`), add `@types/*` as dev deps, and list CommonJS ones in `allowedCommonJsDependencies` in `angular.json`. Wrap them in a small injectable so page specs can spy on them.
-- Tests are always written: backend uses in-memory fakes via `CmsApiFactory` (no Moq, no DB); frontend uses Jasmine specs next to each file.
-- When `/crud` disagrees with this repo (`core/models` paths, Moq, `RowAuditWriter`/`RowAuditBadgeComponent`), follow this repo.
-- After building a feature, add its notes to `docs/claude/features.md` and a row to the index below.
+- Backend per table: `Models/{Table}.cs` + `{Table}Request.cs` + `{Table}Query.cs` → `Repositories/I{Table}Repository` + impl (Dapper, async) → DI in `Program.cs` → `Controllers/{Table}sController` at `api/{kebab-plural}`; lookups at `api/lookups/{kebab-plural}`. JSON is camelCase.
+- Frontend per table: `src/app/features/{kebab-plural}/` with list/detail/form folders, `{table}.model.ts`, `{table}.service.ts`. No `.component` suffix. Signals, `inject()`, `@if`/`@for`. Lazy routes in `app.routes.ts`; sidebar in `navGroups` (`app.ts`). Shared UI in `core/components/`.
+- 409 and business-rule 400 responses carry `{ message }` (Traditional Chinese); the frontend toasts it.
+- Tests are always written: backend via `CmsApiFactory` with in-memory fakes (no Moq, no DB); frontend Jasmine specs next to each file.
+- When `/crud` disagrees with this repo (`core/models` paths, Moq, `RowAuditWriter`/`RowAuditBadgeComponent`), follow this repo. After building a feature, add notes to `docs/claude/features.md` and a row below.
 
 ## Features
 
 | Feature | Menu | Key facts |
 |---|---|---|
 | AppRole | 系統管理 › 角色 | string PK `RoleId` + `pkid` route key; n-n users |
-| AppUser | 系統管理 › 使用者 | string PK `UserId`; `PasswordHash` backend-only (SHA-256 of SysConfig default); reset-password endpoint; n-n roles |
+| AppUser | 系統管理 › 使用者 | string PK `UserId`; `PasswordHash` backend-only; reset-password endpoint; n-n roles |
 | PublishStatus | 系統管理 › 發布狀態 | tinyint non-IDENTITY PK |
 | Partner | 課程管理 › 原廠 | smallint IDENTITY; 5 child counts incl. Seminar (no FK) |
 | CourseGroup | 課程管理 › 課程群組 | smallint IDENTITY; minimal template |
-| Course | 課程管理 › 課程 | FKs + n-n + long texts + CourseRecomm string-key children; detail page QR code |
-| FeaturedPromoItem | 首頁 › 上稿作業 | custom UI (`spec/custom/`): week grid per training center, 3 slots/day, inline edit, copy/paste, slot swap |
+| Course | 課程管理 › 課程 | FKs + n-n + long texts + CourseRecomm string-key children; QR code; list in-place editing; pinned form toolbar |
+| FeaturedPromoItem | 首頁 › 上稿作業 | custom UI from `spec/custom/`: week grid per training center, 3 slots/day, copy/paste, slot swap |
 
-## Environment gotchas
+## Must-know gotchas (details in `workspace.md`)
 
-- Git Bash: quote the server name (`sqlcmd -S '.\SQLEXPRESS'`). Chinese prints garbled in sqlcmd output, so query non-text columns. `curl -d` mis-encodes Chinese, so use ASCII payloads.
-- A running `dotnet run` locks `CMS.API/bin` (MSB3027). The user often leaves an API on :5000 with old code: don't kill it. Use `dotnet test --artifacts-path <temp>`, and smoke-test with a second copy: `dotnet run --project CMS.API --artifacts-path <temp> --urls http://localhost:5099`.
-- Smoke tests write real rows: use ASCII `ZZ…`/`zz…` keys (or far-future dates such as 2099 for date-keyed tables), delete them afterwards, and check side tables (`CourseRecomm`, `AppUserRole`) and temporary values (FeaturedPromoItem `Slot = 0`) with sqlcmd.
-- No real Python (`python` is the Store stub). Edit with Edit/Write or `node`; `jq` is available.
-- Write C#/TS source with the Write tool: long heredocs break, and in `node -e "…"` bash eats backticks and `${…}`. A single-quoted `node -e '…'` with `\x27` for apostrophes is safe.
+- An API on :5000 and `npm start` on :4200 are usually already running with old API code: don't kill them; build/test with `--artifacts-path <temp>` and smoke-test a second API copy on :5099.
+- Smoke tests write real DB rows: use `ZZ…` keys / 2099 dates and delete them (and side-table rows) afterwards.
+- No Python; write source with the Write tool, script small edits with single-quoted `node -e '…'`.
