@@ -1,6 +1,6 @@
 # Feature notes
 
-Per-feature decisions that aren't obvious from the code. Read the section for a feature before changing it, or one that is FK-related to it. Full specs are in `spec/{sub-system}/{Table}.md`. Add a section here (and a row to the index in CLAUDE.md) when you build a new feature.
+Per-feature decisions that aren't obvious from the code. Read the section for a feature before changing it, or one that is FK-related to it. Full specs are in `spec/{sub-system}/{Table}.md`. Add a section here when you build a new feature, and add its name to the `features.md` pointer in CLAUDE.md.
 
 ## AppRole — 系統管理 Admin › 角色 (`database/auth.sql`)
 - Table PK `RoleId` (nvarchar), immutable on update (referenced by `AppUserRole`); `pkid` used for routes/PUT. Duplicate → 409.
