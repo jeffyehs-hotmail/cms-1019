@@ -8,6 +8,12 @@ On every Claude Code session end, each developer's machine submits that session'
 
 No table exists yet. This feature adds the DDL.
 
+## Session name **(added after the first build)**
+
+- The hook sends `sessionName`: the last `custom-title` entry (`/rename`), else the last `ai-title` entry (rewritten by Claude Code during the session), trimmed and capped at 200 characters; null when neither exists. `PARSER_VERSION` 2.
+- Stored in `AgentTokenUsage.SessionName` nvarchar(200) NULL (same on every row of the session). Blank → NULL; over 200 → 400.
+- Report: the query takes `groupBySession`. When it is true, rows are also grouped by SessionId and carry `sessionId` / `sessionName`. The page has a 依工作階段 toggle that adds a 工作階段 column (unnamed: （未命名） + the first 8 characters of the id).
+
 ## Capture: SessionEnd hook (`tools/token-report/`)
 
 - A Node script (no Python) runs as a Claude Code **SessionEnd** hook.

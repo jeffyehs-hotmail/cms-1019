@@ -28,6 +28,7 @@ CREATE TABLE [dbo].[AgentTokenUsage](
 	[Model] [nvarchar](100) NOT NULL,
 	[UserId] [nvarchar](200) NOT NULL,
 	[Project] [nvarchar](200) NOT NULL,
+	[SessionName] [nvarchar](200) NULL,
 	[InputTokens] [bigint] NOT NULL,
 	[OutputTokens] [bigint] NOT NULL,
 	[CacheWrite5mTokens] [bigint] NOT NULL,
@@ -43,6 +44,10 @@ CREATE TABLE [dbo].[AgentTokenUsage](
 	[Model] ASC
 )
 ) ON [PRIMARY]
+GO
+-- Session name from the transcript: last custom-title (/rename), else last ai-title; NULL when neither.
+IF COL_LENGTH('dbo.AgentTokenUsage', 'SessionName') IS NULL
+	ALTER TABLE [dbo].[AgentTokenUsage] ADD [SessionName] [nvarchar](200) NULL
 GO
 IF OBJECT_ID('dbo.FK_AgentTokenUsage_AppUser', 'F') IS NULL
 ALTER TABLE [dbo].[AgentTokenUsage] WITH CHECK ADD CONSTRAINT [FK_AgentTokenUsage_AppUser] FOREIGN KEY([UserId])

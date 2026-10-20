@@ -8,6 +8,13 @@ public class AgentTokenUsage
     public string UserName { get; set; } = string.Empty;
     public string Project { get; set; } = string.Empty;
     public string Model { get; set; } = string.Empty;
+
+    /// <summary>Set only when the query groups by session (<see cref="AgentTokenUsageQuery.GroupBySession"/>).</summary>
+    public string? SessionId { get; set; }
+
+    /// <summary>Session name (null = unnamed); set only when grouped by session.</summary>
+    public string? SessionName { get; set; }
+
     public int SessionCount { get; set; }
     public long InputTokens { get; set; }
     public long OutputTokens { get; set; }

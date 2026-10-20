@@ -4,7 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { taipeiDate, tokensOf, collectCalls, aggregate, firstCwd } = require('../lib/parse');
+const { taipeiDate, tokensOf, collectCalls, aggregate, sessionName, firstCwd } = require('../lib/parse');
 
 const fixture = fs.readFileSync(path.join(__dirname, 'fixtures', 'session.jsonl'), 'utf8');
 
@@ -58,4 +58,13 @@ test('aggregate sums per Taipei date and model and drops all-zero rows', () => {
 test('firstCwd returns the first recorded working directory', () => {
   assert.equal(firstCwd(fixture), 'C:\\course\\cms');
   assert.equal(firstCwd('{"type":"x"}'), null);
+});
+
+test('sessionName prefers the last custom-title, then the last ai-title, trimmed and capped', () => {
+  assert.equal(sessionName(fixture), 'token report');
+  const ai = (t) => JSON.stringify({ type: 'ai-title', aiTitle: t });
+  assert.equal(sessionName([ai('first'), ai('second')].join('\n')), 'second');
+  assert.equal(sessionName(ai('x'.repeat(250))).length, 200);
+  assert.equal(sessionName(JSON.stringify({ type: 'custom-title', customTitle: '  ' }) + '\n' + ai('fallback')), 'fallback');
+  assert.equal(sessionName('{"type":"user"}'), null);
 });

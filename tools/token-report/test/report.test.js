@@ -34,7 +34,8 @@ test('buildReport includes subagent transcripts and uses the hook cwd for the pr
   assert.deepEqual(projects, ['D:\\work\\x']);
   assert.equal(report.sessionId, 'sess-1');
   assert.equal(report.project, 'x-repo');
-  assert.equal(report.parserVersion, '1');
+  assert.equal(report.parserVersion, '2');
+  assert.equal(report.sessionName, 'token report');
   const haiku = report.rows.find((r) => r.usageDate === '2026-10-20' && r.model === 'claude-haiku-5-5');
   assert.equal(haiku.inputTokens, 600);  // 500 main + 100 subagent (counted once)
   assert.equal(haiku.outputTokens, 24);

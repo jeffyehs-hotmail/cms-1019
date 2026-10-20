@@ -18,7 +18,7 @@ describe('AgentTokenUsageService', () => {
   afterEach(() => http.verify());
 
   it('query() POSTs the filters to /query', () => {
-    const q = { from: '2026-10-01', to: '2026-10-31', userIds: ['alice'], projects: [], models: [] };
+    const q = { from: '2026-10-01', to: '2026-10-31', userIds: ['alice'], projects: [], models: [], groupBySession: true };
     service.query(q).subscribe();
     const req = http.expectOne(`${baseUrl}/query`);
     expect(req.request.method).toBe('POST');

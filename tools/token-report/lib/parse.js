@@ -4,7 +4,7 @@
 // The transcript format is internal to Claude Code and can change between releases;
 // keep every assumption about it in this file and bump PARSER_VERSION when it changes.
 
-const PARSER_VERSION = '1';
+const PARSER_VERSION = '2'; // 2: adds sessionName
 const TAIPEI_OFFSET_MS = 8 * 60 * 60 * 1000; // Taiwan has no DST
 const SKIPPED_MODELS = new Set(['<synthetic>']);
 
@@ -78,6 +78,30 @@ function aggregate(calls) {
     .sort((a, b) => a.usageDate.localeCompare(b.usageDate) || a.model.localeCompare(b.model));
 }
 
+const MAX_SESSION_NAME = 200;
+
+/**
+ * Session name: the last `custom-title` (set with /rename), else the last `ai-title` (rewritten as the
+ * session goes on), trimmed to 200 characters; null when the transcript has neither.
+ */
+function sessionName(text) {
+  let custom = null;
+  let ai = null;
+  for (const line of text.split(/\r?\n/)) {
+    if (!line.includes('-title"')) continue;
+    let entry;
+    try {
+      entry = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    if (entry?.type === 'custom-title' && typeof entry.customTitle === 'string') custom = entry.customTitle;
+    else if (entry?.type === 'ai-title' && typeof entry.aiTitle === 'string') ai = entry.aiTitle;
+  }
+  const name = (custom?.trim() || ai?.trim() || '').slice(0, MAX_SESSION_NAME);
+  return name || null;
+}
+
 /** First `cwd` recorded in the transcript (used by --backfill, where the hook input is not available). */
 function firstCwd(text) {
   for (const line of text.split(/\r?\n/)) {
@@ -92,4 +116,4 @@ function firstCwd(text) {
   return null;
 }
 
-module.exports = { PARSER_VERSION, taipeiDate, tokensOf, collectCalls, aggregate, firstCwd };
+module.exports = { PARSER_VERSION, taipeiDate, tokensOf, collectCalls, aggregate, sessionName, firstCwd };

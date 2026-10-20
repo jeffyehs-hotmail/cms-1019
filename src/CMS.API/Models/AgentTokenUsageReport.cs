@@ -7,6 +7,10 @@ namespace CMS.API.Models;
 public class AgentTokenUsageReport
 {
     public string SessionId { get; set; } = string.Empty;
+
+    /// <summary>Last /rename title, else the last auto title; null/blank = unnamed.</summary>
+    public string? SessionName { get; set; }
+
     public string Project { get; set; } = string.Empty;
     public string ParserVersion { get; set; } = string.Empty;
     public List<AgentTokenUsageReportRow> Rows { get; set; } = [];

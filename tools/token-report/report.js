@@ -13,7 +13,7 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { PARSER_VERSION, collectCalls, aggregate, firstCwd } = require('./lib/parse');
+const { PARSER_VERSION, collectCalls, aggregate, sessionName, firstCwd } = require('./lib/parse');
 const { resolveProject } = require('./lib/project');
 const { enqueue, flush, requeueFailed } = require('./lib/outbox');
 
@@ -49,7 +49,13 @@ function buildReport({ sessionId, transcriptPath, cwd }, resolve = resolveProjec
   for (const file of subagentFiles(transcriptPath, sessionId)) collectCalls(readText(file), calls);
   const rows = aggregate(calls);
   if (rows.length === 0) return null;
-  return { sessionId, project: resolve(cwd || firstCwd(main)), parserVersion: PARSER_VERSION, rows };
+  return {
+    sessionId,
+    sessionName: sessionName(main),
+    project: resolve(cwd || firstCwd(main)),
+    parserVersion: PARSER_VERSION,
+    rows,
+  };
 }
 
 function readConfig() {

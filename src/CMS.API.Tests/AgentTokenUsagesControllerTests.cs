@@ -140,6 +140,29 @@ public class AgentTokenUsagesControllerTests : IDisposable
         Assert.Single(_factory.AgentTokenUsages.Rows, r => r.SessionId == "s2");
     }
 
+    [Theory]
+    [InlineData("  token report  ", "token report")]
+    [InlineData("   ", null)]
+    [InlineData(null, null)]
+    public async Task Report_StoresTheTrimmedSessionName(string? sent, string? stored)
+    {
+        var res = await Client().PostAsJsonAsync(Url,
+            new { sessionId = "s1", sessionName = sent, project = "p", parserVersion = "2", rows = new[] { Row() } });
+
+        Assert.Equal(HttpStatusCode.NoContent, res.StatusCode);
+        Assert.Equal(stored, Assert.Single(_factory.AgentTokenUsages.Rows).SessionName);
+    }
+
+    [Fact]
+    public async Task Report_SessionNameOver200_Returns400()
+    {
+        var res = await Client().PostAsJsonAsync(Url,
+            new { sessionId = "s1", sessionName = new string('n', 201), project = "p", parserVersion = "2", rows = new[] { Row() } });
+
+        Assert.Equal(HttpStatusCode.BadRequest, res.StatusCode);
+        Assert.Equal("sessionName 不可超過 200 字", await MessageOf(res));
+    }
+
     [Fact]
     public async Task Report_SessionOwnedByAnotherUser_Returns409()
     {
@@ -251,6 +274,38 @@ public class AgentTokenUsagesControllerTests : IDisposable
             .Select(r => r.UserId).Distinct());
         Assert.Equal(2, (await Q(new { from = "2026-09-01", to = "2026-10-31", projects = new[] { "other" } })).Count);
         Assert.Single(await Q(new { models = new[] { "claude-haiku-5-5", " " } }));
+    }
+
+    [Fact]
+    public async Task Query_WithoutGroupBySession_LeavesSessionFieldsEmpty()
+    {
+        SeedReport();
+
+        var rows = await (await Client(token: null).PostAsJsonAsync($"{Url}/query", new { }))
+            .Content.ReadFromJsonAsync<List<AgentTokenUsage>>();
+
+        Assert.All(rows!, r => Assert.Null(r.SessionId));
+        Assert.All(rows!, r => Assert.Null(r.SessionName));
+    }
+
+    [Fact]
+    public async Task Query_GroupBySession_SplitsRowsPerSession_WithNames()
+    {
+        _factory.AgentTokenUsages.Add(new FakeAgentTokenUsageRepository.Row(
+            "a1", new DateOnly(2026, 10, 20), "claude-opus-5-5", "alice", "cms-1019", 10, 1, 0, 0, 0, 1m, "2", DateTime.Now, "Zeta work"));
+        _factory.AgentTokenUsages.Add(new FakeAgentTokenUsageRepository.Row(
+            "a2", new DateOnly(2026, 10, 20), "claude-opus-5-5", "alice", "cms-1019", 20, 1, 0, 0, 0, 2m, "2", DateTime.Now, "Alpha work"));
+        _factory.AgentTokenUsages.Add(new FakeAgentTokenUsageRepository.Row(
+            "a3", new DateOnly(2026, 10, 20), "claude-opus-5-5", "alice", "cms-1019", 5, 1, 0, 0, 0, 3m, "2", DateTime.Now));
+
+        var rows = await (await Client(token: null).PostAsJsonAsync($"{Url}/query", new { groupBySession = true }))
+            .Content.ReadFromJsonAsync<List<AgentTokenUsage>>();
+
+        // Unnamed sessions sort first (null), then by name.
+        Assert.Equal(["a3", "a2", "a1"], rows!.Select(r => r.SessionId));
+        Assert.Equal([null, "Alpha work", "Zeta work"], rows.Select(r => r.SessionName));
+        Assert.All(rows, r => Assert.Equal(1, r.SessionCount));
+        Assert.Equal([5L, 20L, 10L], rows.Select(r => r.InputTokens));
     }
 
     [Fact]

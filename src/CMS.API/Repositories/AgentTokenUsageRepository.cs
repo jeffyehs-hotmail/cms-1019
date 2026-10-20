@@ -44,6 +44,7 @@ public class AgentTokenUsageRepository(IDbConnectionFactory db) : IAgentTokenUsa
         var rows = report.Rows.Select(r => new
         {
             report.SessionId,
+            report.SessionName,
             UsageDate = r.UsageDate!.Value,
             r.Model,
             UserId = userId,
@@ -59,10 +60,10 @@ public class AgentTokenUsageRepository(IDbConnectionFactory db) : IAgentTokenUsa
         }).ToList();
 
         await conn.ExecuteAsync("""
-            INSERT INTO AgentTokenUsage (SessionId, UsageDate, Model, UserId, Project,
+            INSERT INTO AgentTokenUsage (SessionId, SessionName, UsageDate, Model, UserId, Project,
                 InputTokens, OutputTokens, CacheWrite5mTokens, CacheWrite1hTokens, CacheReadTokens,
                 Cost, ParserVersion, UpdatedTime)
-            VALUES (@SessionId, @UsageDate, @Model, @UserId, @Project,
+            VALUES (@SessionId, @SessionName, @UsageDate, @Model, @UserId, @Project,
                 @InputTokens, @OutputTokens, @CacheWrite5mTokens, @CacheWrite1hTokens, @CacheReadTokens,
                 @Cost, @ParserVersion, @UpdatedTime)
             """, rows, tx);
@@ -72,8 +73,13 @@ public class AgentTokenUsageRepository(IDbConnectionFactory db) : IAgentTokenUsa
 
     public async Task<IEnumerable<AgentTokenUsage>> QueryAsync(AgentTokenUsageQuery query)
     {
-        var sql = new StringBuilder("""
-            SELECT a.UsageDate, a.UserId, u.UserName, a.Project, a.Model,
+        // 依工作階段: also group by SessionId (SessionName is the same on every row of a session).
+        var sessionColumns = query.GroupBySession ? "a.SessionId, MAX(a.SessionName) AS SessionName," : "";
+        var sessionGroup = query.GroupBySession ? ", a.SessionId" : "";
+        var sessionOrder = query.GroupBySession ? ", MAX(a.SessionName), a.SessionId" : "";
+
+        var sql = new StringBuilder($"""
+            SELECT a.UsageDate, a.UserId, u.UserName, a.Project, a.Model, {sessionColumns}
                    COUNT(DISTINCT a.SessionId) AS SessionCount,
                    SUM(a.InputTokens) AS InputTokens, SUM(a.OutputTokens) AS OutputTokens,
                    SUM(a.CacheWrite5mTokens) AS CacheWrite5mTokens, SUM(a.CacheWrite1hTokens) AS CacheWrite1hTokens,
@@ -104,9 +110,9 @@ public class AgentTokenUsageRepository(IDbConnectionFactory db) : IAgentTokenUsa
             p.Add("Models", query.Models);
         }
 
-        sql.Append("""
-             GROUP BY a.UsageDate, a.UserId, u.UserName, a.Project, a.Model
-             ORDER BY a.UsageDate DESC, a.UserId, a.Project, a.Model
+        sql.Append($"""
+             GROUP BY a.UsageDate, a.UserId, u.UserName, a.Project{sessionGroup}, a.Model
+             ORDER BY a.UsageDate DESC, a.UserId, a.Project{sessionOrder}, a.Model
             """);
 
         using var conn = await db.OpenAsync();

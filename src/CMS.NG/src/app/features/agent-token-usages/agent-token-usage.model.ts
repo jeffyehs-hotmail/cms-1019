@@ -6,6 +6,10 @@ export interface AgentTokenUsage {
   userName: string;
   project: string;
   model: string;
+  /** Filled only when the query sets `groupBySession`. */
+  sessionId: string | null;
+  /** Session name (last /rename title, else auto title); null = unnamed. Only with `groupBySession`. */
+  sessionName: string | null;
   sessionCount: number;
   inputTokens: number;
   outputTokens: number;
@@ -25,6 +29,8 @@ export interface AgentTokenUsageQuery {
   userIds: string[];
   projects: string[];
   models: string[];
+  /** 依工作階段: one row per session as well, with sessionId / sessionName. */
+  groupBySession: boolean;
 }
 
 export interface AgentTokenUsageFilterOptions {

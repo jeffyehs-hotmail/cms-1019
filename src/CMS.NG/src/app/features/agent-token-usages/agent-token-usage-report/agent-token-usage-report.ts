@@ -7,6 +7,7 @@ import { DatePickerModule } from 'primeng/datepicker';
 import { MultiSelectModule } from 'primeng/multiselect';
 import { TableModule } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
+import { ToggleSwitchModule } from 'primeng/toggleswitch';
 import { forkJoin } from 'rxjs';
 import { AppUserLookup } from '../../../core/models/lookup.model';
 import { LookupService } from '../../../core/services/lookup.service';
@@ -29,11 +30,21 @@ interface Draft {
   userIds: string[];
   projects: string[];
   models: string[];
+  groupBySession: boolean;
 }
 
 @Component({
   selector: 'app-agent-token-usage-report',
-  imports: [DecimalPipe, FormsModule, ButtonModule, DatePickerModule, MultiSelectModule, TableModule, TagModule],
+  imports: [
+    DecimalPipe,
+    FormsModule,
+    ButtonModule,
+    DatePickerModule,
+    MultiSelectModule,
+    TableModule,
+    TagModule,
+    ToggleSwitchModule,
+  ],
   templateUrl: './agent-token-usage-report.html',
   styleUrl: './agent-token-usage-report.scss',
 })
@@ -46,6 +57,8 @@ export class AgentTokenUsageReport implements OnInit {
   readonly loading = signal(false);
   readonly filters = signal<AgentTokenUsageQuery>(readSession(FILTERS_KEY, this.defaultFilters()));
   readonly totals = computed(() => totalsOf(this.rows()));
+  /** Session column shown for the applied filters (not the draft), so headers match the rows. */
+  readonly bySession = computed(() => this.filters().groupBySession);
 
   readonly users = signal<AppUserLookup[]>([]);
   readonly userOptions = computed(() => this.users().map((u) => ({ value: u.userId, label: `${u.userName} (${u.userId})` })));
@@ -100,6 +113,7 @@ export class AgentTokenUsageReport implements OnInit {
       userIds: [...this.draft.userIds],
       projects: [...this.draft.projects],
       models: [...this.draft.models],
+      groupBySession: this.draft.groupBySession,
     });
     writeSession(FILTERS_KEY, this.filters());
     this.load();
@@ -112,7 +126,7 @@ export class AgentTokenUsageReport implements OnInit {
 
   private defaultFilters(): AgentTokenUsageQuery {
     const { from, to } = currentTaipeiMonth();
-    return { from: toIsoDate(from), to: toIsoDate(to), userIds: [], projects: [], models: [] };
+    return { from: toIsoDate(from), to: toIsoDate(to), userIds: [], projects: [], models: [], groupBySession: false };
   }
 
   private toDraft(q: AgentTokenUsageQuery): Draft {
@@ -123,6 +137,7 @@ export class AgentTokenUsageReport implements OnInit {
       userIds: [...q.userIds],
       projects: [...q.projects],
       models: [...q.models],
+      groupBySession: !!q.groupBySession,
     };
   }
 }

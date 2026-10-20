@@ -22,7 +22,7 @@ public class FakeAgentTokenUsageRepository(FakeAppUserRepository appUsers) : IAg
     public sealed record Row(
         string SessionId, DateOnly UsageDate, string Model, string UserId, string Project,
         long InputTokens, long OutputTokens, long CacheWrite5mTokens, long CacheWrite1hTokens, long CacheReadTokens,
-        decimal? Cost, string ParserVersion, DateTime UpdatedTime);
+        decimal? Cost, string ParserVersion, DateTime UpdatedTime, string? SessionName = null);
 
     public IReadOnlyList<Row> Rows
     {
@@ -57,7 +57,7 @@ public class FakeAgentTokenUsageRepository(FakeAppUserRepository appUsers) : IAg
             _rows.AddRange(report.Rows.Select(r => new Row(
                 report.SessionId, r.UsageDate!.Value, r.Model, userId, report.Project,
                 r.InputTokens, r.OutputTokens, r.CacheWrite5mTokens, r.CacheWrite1hTokens, r.CacheReadTokens,
-                r.Cost, report.ParserVersion, updatedTime)));
+                r.Cost, report.ParserVersion, updatedTime, report.SessionName)));
         }
         return Task.CompletedTask;
     }
@@ -72,7 +72,8 @@ public class FakeAgentTokenUsageRepository(FakeAppUserRepository appUsers) : IAg
             if (query.Projects.Count > 0) q = q.Where(r => query.Projects.Contains(r.Project, StringComparer.OrdinalIgnoreCase));
             if (query.Models.Count > 0) q = q.Where(r => query.Models.Contains(r.Model, StringComparer.OrdinalIgnoreCase));
 
-            return q.GroupBy(r => (r.UsageDate, r.UserId, r.Project, r.Model))
+            var bySession = query.GroupBySession;
+            return q.GroupBy(r => (r.UsageDate, r.UserId, r.Project, r.Model, SessionId: bySession ? r.SessionId : null))
                 .Select(g => new AgentTokenUsage
                 {
                     UsageDate = g.Key.UsageDate,
@@ -80,6 +81,8 @@ public class FakeAgentTokenUsageRepository(FakeAppUserRepository appUsers) : IAg
                     UserName = names.GetValueOrDefault(g.Key.UserId, string.Empty),
                     Project = g.Key.Project,
                     Model = g.Key.Model,
+                    SessionId = g.Key.SessionId,
+                    SessionName = bySession ? g.Max(r => r.SessionName) : null,
                     SessionCount = g.Select(r => r.SessionId).Distinct().Count(),
                     InputTokens = g.Sum(r => r.InputTokens),
                     OutputTokens = g.Sum(r => r.OutputTokens),
@@ -92,6 +95,8 @@ public class FakeAgentTokenUsageRepository(FakeAppUserRepository appUsers) : IAg
                 .OrderByDescending(r => r.UsageDate)
                 .ThenBy(r => r.UserId, StringComparer.Ordinal)
                 .ThenBy(r => r.Project, StringComparer.Ordinal)
+                .ThenBy(r => r.SessionName, StringComparer.Ordinal)
+                .ThenBy(r => r.SessionId, StringComparer.Ordinal)
                 .ThenBy(r => r.Model, StringComparer.Ordinal)
                 .ToList();
         }

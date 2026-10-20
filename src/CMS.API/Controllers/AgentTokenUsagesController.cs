@@ -68,6 +68,7 @@ public class AgentTokenUsagesController(IAgentTokenUsageRepository repo, TimePro
     private static void Normalize(AgentTokenUsageReport r)
     {
         r.SessionId = (r.SessionId ?? string.Empty).Trim();
+        r.SessionName = string.IsNullOrWhiteSpace(r.SessionName) ? null : r.SessionName.Trim();
         r.Project = (r.Project ?? string.Empty).Trim();
         r.ParserVersion = (r.ParserVersion ?? string.Empty).Trim();
         r.Rows ??= [];
@@ -77,6 +78,7 @@ public class AgentTokenUsagesController(IAgentTokenUsageRepository repo, TimePro
     private BadRequestObjectResult? Validate(AgentTokenUsageReport r)
     {
         if (r.SessionId.Length is 0 or > 100) return Bad("sessionId 必填且不可超過 100 字");
+        if (r.SessionName is { Length: > 200 }) return Bad("sessionName 不可超過 200 字");
         if (r.Project.Length is 0 or > 200) return Bad("project 必填且不可超過 200 字");
         if (r.ParserVersion.Length is 0 or > 20) return Bad("parserVersion 必填且不可超過 20 字");
         if (r.Rows.Count is 0 or > MaxRows) return Bad($"rows 須為 1 到 {MaxRows} 筆");

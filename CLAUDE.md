@@ -43,14 +43,14 @@ cd tools/token-report && node --test        # token-usage hook tests
 | Partner | 課程管理 › 原廠 | smallint IDENTITY; 5 child counts incl. Seminar (no FK) |
 | CourseGroup | 課程管理 › 課程群組 | smallint IDENTITY; minimal template |
 | Course | 課程管理 › 課程 | FKs + n-n + long texts + CourseRecomm string-key children; QR code; list in-place editing; pinned form toolbar |
-| AgentTokenUsage | 系統管理 › Token 用量 | Claude Code SessionEnd hook (`tools/token-report/`) → `POST api/agent-token-usages` with per-user `cms_at_` token; replace-per-session; server-side cost from `AgentModelPrice`; hand-written `database/agent.sql` |
+| AgentTokenUsage | 系統管理 › Token 用量 | Claude Code SessionEnd hook (`tools/token-report/`) → `POST api/agent-token-usages` with per-user `cms_at_` token; replace-per-session; session name from `/rename` / auto title, report 依工作階段 toggle; server-side cost from `AgentModelPrice`; hand-written `database/agent.sql` |
 | FeaturedPromoItem | 首頁 › 上稿作業 | custom UI from `spec/custom/`: week grid per training center, 3 slots/day, copy/paste, slot swap |
 
 ## Must-know gotchas (details in `workspace.md`)
 
 - An API on :5000 and `npm start` on :4200 are usually already running with old API code: don't kill them; build/test with `--artifacts-path <temp>` and smoke-test a second API copy on :5099.
 - Smoke tests write real DB rows: use `ZZ…` keys / 2099 dates and delete them (and side-table rows) afterwards.
-- No Python; write source with the Write tool, script small edits with single-quoted `node -e '…'`.
+- No Python; write source with the Write tool, script small edits with single-quoted `node -e '…'`; edits whose text contains `\n`/`\r` escapes go in a script file in the scratchpad (in `node -e` they turn into real line breaks).
 
 ## Agent skills
 

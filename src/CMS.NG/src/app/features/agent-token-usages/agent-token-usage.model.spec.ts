@@ -7,6 +7,8 @@ describe('agent-token-usage.model', () => {
     userName: 'Alice',
     project: 'cms-1019',
     model: 'claude-opus-5-5',
+    sessionId: null,
+    sessionName: null,
     sessionCount: 1,
     inputTokens: 1,
     outputTokens: 2,

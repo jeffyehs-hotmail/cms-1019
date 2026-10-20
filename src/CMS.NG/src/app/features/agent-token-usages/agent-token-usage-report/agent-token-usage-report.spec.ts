@@ -22,6 +22,8 @@ describe('AgentTokenUsageReport', () => {
     userName: 'Alice',
     project: 'cms-1019',
     model: 'claude-opus-5-5',
+    sessionId: null,
+    sessionName: null,
     sessionCount: 2,
     inputTokens: 1000,
     outputTokens: 2000,
@@ -74,6 +76,7 @@ describe('AgentTokenUsageReport', () => {
       userIds: [],
       projects: [],
       models: [],
+      groupBySession: false,
     });
     expect(fixture.componentInstance.userOptions()).toEqual([{ value: 'alice', label: 'Alice (alice)' }]);
     expect(fixture.componentInstance.projects()).toEqual(['cms-1019']);
@@ -113,11 +116,19 @@ describe('AgentTokenUsageReport', () => {
       userIds: ['alice'],
       projects: ['cms-1019'],
       models: [],
+      groupBySession: true,
     };
 
     c.search();
 
-    const expected = { from: '2026-09-01', to: '2026-09-30', userIds: ['alice'], projects: ['cms-1019'], models: [] };
+    const expected = {
+      from: '2026-09-01',
+      to: '2026-09-30',
+      userIds: ['alice'],
+      projects: ['cms-1019'],
+      models: [],
+      groupBySession: true,
+    };
     expect(service.query).toHaveBeenCalledOnceWith(expected);
     expect(JSON.parse(sessionStorage.getItem(FILTERS_KEY)!)).toEqual(expected);
   });
@@ -173,5 +184,27 @@ describe('AgentTokenUsageReport', () => {
 
     expect(el.textContent).toContain('此條件下沒有 Token 用量資料');
     expect(el.querySelector('tr[data-totals]')).toBeNull();
+  });
+
+  it('shows the session column only when grouped by session, with a fallback for unnamed sessions', () => {
+    let el = create();
+    expect(el.querySelector('[data-field="session"]')).toBeNull();
+    expect(el.querySelector('tr[data-totals] td')?.getAttribute('colspan')).toBe('4');
+
+    sessionStorage.setItem(FILTERS_KEY, JSON.stringify({ groupBySession: true }));
+    service.query.and.callFake(() =>
+      of([
+        { ...opus, sessionId: 'aaaaaaaa-1111', sessionName: 'token report', sessionCount: 1 },
+        { ...unpriced, sessionId: 'bbbbbbbb-2222', sessionName: null },
+      ]),
+    );
+    el = create();
+
+    expect(service.query.calls.mostRecent().args[0].groupBySession).toBeTrue();
+    const cells = el.querySelectorAll('[data-field="session"]');
+    expect(cells[0].textContent?.trim()).toBe('token report');
+    expect(cells[0].getAttribute('title')).toBe('aaaaaaaa-1111');
+    expect(cells[1].textContent?.trim()).toBe('（未命名）bbbbbbbb');
+    expect(el.querySelector('tr[data-totals] td')?.getAttribute('colspan')).toBe('5');
   });
 });

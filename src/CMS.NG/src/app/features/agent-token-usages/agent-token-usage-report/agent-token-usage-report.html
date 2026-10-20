@@ -52,6 +52,10 @@
       appendTo="body"
     />
   </div>
+  <div class="field toggle-field">
+    <label for="groupBySession">依工作階段</label>
+    <p-toggleswitch inputId="groupBySession" [(ngModel)]="draft.groupBySession" />
+  </div>
   <div class="filter-actions">
     <p-button label="搜尋" icon="pi pi-search" (onClick)="search()" data-action="search" />
     <p-button label="本月" icon="pi pi-undo" severity="secondary" [outlined]="true" (onClick)="reset()" data-action="reset" />
@@ -65,8 +69,11 @@
         <th>日期</th>
         <th>使用者</th>
         <th>專案</th>
+        @if (bySession()) {
+          <th>工作階段</th>
+        }
         <th>模型</th>
-        <th class="num">工作階段</th>
+        <th class="num">工作階段數</th>
         <th class="num">Input</th>
         <th class="num">Cache write</th>
         <th class="num">Cache read</th>
@@ -81,6 +88,15 @@
         <td>{{ r.usageDate }}</td>
         <td>{{ r.userName }} <span class="muted">({{ r.userId }})</span></td>
         <td>{{ r.project }}</td>
+        @if (bySession()) {
+          <td data-field="session" [title]="r.sessionId">
+            @if (r.sessionName) {
+              {{ r.sessionName }}
+            } @else {
+              <span class="muted">（未命名）{{ r.sessionId?.slice(0, 8) }}</span>
+            }
+          </td>
+        }
         <td>{{ r.model }}</td>
         <td class="num">{{ r.sessionCount | number }}</td>
         <td class="num">{{ r.inputTokens | number }}</td>
@@ -102,7 +118,7 @@
     <ng-template #footer>
       @if (rows().length) {
         <tr class="totals" data-totals>
-          <td colspan="4">合計</td>
+          <td [attr.colspan]="bySession() ? 5 : 4">合計</td>
           <td class="num">{{ totals().sessionCount | number }}</td>
           <td class="num">{{ totals().inputTokens | number }}</td>
           <td class="num">{{ totals().cacheWriteTokens | number }}</td>
@@ -121,7 +137,7 @@
 
     <ng-template #emptymessage>
       <tr>
-        <td colspan="11" class="muted">此條件下沒有 Token 用量資料。</td>
+        <td [attr.colspan]="bySession() ? 12 : 11" class="muted">此條件下沒有 Token 用量資料。</td>
       </tr>
     </ng-template>
   </p-table>
