@@ -5,7 +5,7 @@ describe('course-inline-edit', () => {
   const base: Course = {
     pkid: 10, title: 'Azure 管理', officialTitle: null, courseId: 'AZ104', prodCourseId: 'AZ-104', friendlyUrl: 'az104',
     displayOrder: 1, partnerPkid: 1, partnerName: 'Microsoft', courseGroupPkid: 46, courseGroupDescription: 'Azure',
-    publishStatusPkid: 2, publishStatusDescription: '上架中', scheduleOn: '2026-01-01', scheduleOff: '2027-12-31',
+    publishStatusPkid: 2, publishStatusDescription: '上架中', publishStatusIsPublished: true, scheduleOn: '2026-01-01', scheduleOff: '2027-12-31',
     hour: 32, listPrice: 28000, learningCredit: 4.5, canRepeat: true, material: null, objective: null, target: null,
     prerequisites: null, outline: null, towardCertOrExam: null, note: null, otherInfo: null,
     courseFaqCount: 0, courseRelatedLinkCount: 0, hotCourseCount: 0, certifications: [], jobCategories: [],

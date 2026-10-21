@@ -7,23 +7,8 @@ import { ButtonModule } from 'primeng/button';
 import { ChipModule } from 'primeng/chip';
 import { TooltipModule } from 'primeng/tooltip';
 import { QrCode } from '../../../core/components/qr-code/qr-code';
-import { Course, courseInUse } from '../course.model';
+import { Course, TEXT_FIELDS, courseInUse, courseUrl } from '../course.model';
 import { CourseService } from '../course.service';
-
-/** Public course page on the website, encoded in the detail page QR code. */
-export const COURSE_SITE_URL = 'https://www.uuu.com.tw/Course/Show';
-
-/** Long-text fields shown in the 課程內容 card, in display order. */
-export const TEXT_FIELDS: { key: keyof Course; label: string }[] = [
-  { key: 'material', label: '教材' },
-  { key: 'target', label: '適合對象' },
-  { key: 'objective', label: '課程目標' },
-  { key: 'prerequisites', label: '預備知識' },
-  { key: 'outline', label: '課程大綱' },
-  { key: 'towardCertOrExam', label: '相關認證／考試' },
-  { key: 'note', label: '備註' },
-  { key: 'otherInfo', label: '其他資訊' },
-];
 
 @Component({
   selector: 'app-course-detail',
@@ -56,10 +41,7 @@ export class CourseDetail implements OnInit {
     });
   }
 
-  /** https://www.uuu.com.tw/Course/Show/{pkid}/{CourseId} */
-  courseUrl(c: Course): string {
-    return `${COURSE_SITE_URL}/${c.pkid}/${encodeURIComponent(c.courseId)}`;
-  }
+  readonly courseUrl = courseUrl;
 
   text(c: Course, key: keyof Course): string | null {
     return c[key] as string | null;

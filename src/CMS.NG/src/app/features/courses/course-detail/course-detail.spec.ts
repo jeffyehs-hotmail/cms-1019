@@ -19,7 +19,7 @@ describe('CourseDetail', () => {
     pkid: 42, title: 'CCNP 課程', officialTitle: null, courseId: 'CCNP', prodCourseId: 'CCNP-ENCOR',
     friendlyUrl: 'ccnp', displayOrder: 3, partnerPkid: 4, partnerName: 'Cisco', courseGroupPkid: null,
     courseGroupDescription: null, publishStatusPkid: 2, publishStatusDescription: '上架中',
-    scheduleOn: '2026-01-01', scheduleOff: '2027-12-31', hour: 40, listPrice: 30000, learningCredit: 5,
+    publishStatusIsPublished: true, scheduleOn: '2026-01-01', scheduleOff: '2027-12-31', hour: 40, listPrice: 30000, learningCredit: 5,
     canRepeat: true, material: null, objective: '學會路由', target: null, prerequisites: null,
     outline: '第一章\n第二章', towardCertOrExam: null, note: null, otherInfo: null,
     courseFaqCount: 0, courseRelatedLinkCount: 0, hotCourseCount: 0,

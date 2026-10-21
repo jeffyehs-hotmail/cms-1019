@@ -20,7 +20,7 @@ describe('CourseList', () => {
   const base: Course = {
     pkid: 0, title: '', officialTitle: null, courseId: '', prodCourseId: '', friendlyUrl: '', displayOrder: 0,
     partnerPkid: 1, partnerName: 'Microsoft', courseGroupPkid: null, courseGroupDescription: null,
-    publishStatusPkid: 2, publishStatusDescription: '上架中', scheduleOn: '2026-01-01', scheduleOff: '2027-12-31',
+    publishStatusPkid: 2, publishStatusDescription: '上架中', publishStatusIsPublished: true, scheduleOn: '2026-01-01', scheduleOff: '2027-12-31',
     hour: 0, listPrice: 0, learningCredit: 0, canRepeat: false, material: null, objective: null, target: null,
     prerequisites: null, outline: null, towardCertOrExam: null, note: null, otherInfo: null,
     courseFaqCount: 0, courseRelatedLinkCount: 0, hotCourseCount: 0, certifications: [], jobCategories: [],
