@@ -56,6 +56,16 @@ Read this before adding or changing UI (`src/CMS.NG`).
 - Confirm dialogs: `spyOn(confirmation, 'confirm').and.callFake(c => { c.accept?.(); return confirmation; })`.
 - `tsconfig.spec.json` only includes `*.spec.ts`, so no shared fixture files: define a `base: X` in each spec and spread it into **named** rows. `p-table` sorts `[value]` in place, so mocks return a copy (`callFake(() => of([...rows]))`).
 - Query-param inputs: `fixture.componentRef.setInput('partnerPkid', '3')`.
+- **Date-dependent specs** (QR omit rule, brochure, detail page):
+  - Install the mock clock in `beforeEach` with `jasmine.clock().install(); jasmine.clock().mockDate(new Date(2026, 9, 21))`, and uninstall it in `afterEach`.
+  - With the clock installed, `setTimeout(r, 0)` never fires. Settle async work (e.g. the real QR render) by awaiting `Promise.resolve()` about 10 times, then `detectChanges()`; see `flush()` in course-detail.spec.ts.
+- **Window events:**
+  - Dispatch them directly, e.g. `window.dispatchEvent(new Event('beforeprint'))`.
+  - Prove `@HostListener` cleanup with `fixture.destroy()` followed by another dispatch.
+  - Restore `document.title` and any `<html>` style properties in `afterEach`.
+- **PrimeNG directive inputs** without a DOM attribute: read them from the injector, e.g. `debugElement.query(...).injector.get(Tooltip).content` for `pTooltip`.
+- **Never-loading request:** `service.getById.and.returnValue(NEVER)`.
+- **Regression specs added by /qa** are named `{component}.regression-N.spec.ts`. Karma only loads `*.spec.ts`.
 
 ## Build
 
