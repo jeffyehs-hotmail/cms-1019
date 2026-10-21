@@ -76,6 +76,20 @@ describe('CourseBrochure', () => {
     expect(b(create(), 'price')).toBeUndefined();
   });
 
+  it('shows 定價 when the switch is on (D12)', () => {
+    create();
+    (fixture.componentInstance as { showPrice: boolean }).showPrice = true;
+    fixture.componentRef.changeDetectorRef.markForCheck();
+    fixture.detectChanges();
+    expect(b(fixture.nativeElement, 'price')).toBe('定價：NT$ 30,000');
+  });
+
+  it('prints only the 請洽業務 fallback when every long text is empty', () => {
+    const el = create({ objective: null, target: '', prerequisites: '  ', outline: null });
+    expect(b(el, 'fallback')).toBe('詳細課程內容請洽業務');
+    expect(sectionLabels(el)).toEqual([]);
+  });
+
   it('prints the 請洽業務 fallback when no content field has text, still printing notes', () => {
     const el = create({ objective: null, target: null, outline: null, note: '僅備註' });
     expect(b(el, 'fallback')).toBe('詳細課程內容請洽業務');

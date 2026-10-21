@@ -4,7 +4,9 @@ import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { Router, provideRouter } from '@angular/router';
 import { NEVER, of, throwError } from 'rxjs';
 import { Confirmation, ConfirmationService, MessageService } from 'primeng/api';
+import { Tooltip } from 'primeng/tooltip';
 import { Course } from '../course.model';
+import { CourseBrochure } from '../course-brochure/course-brochure';
 import { CourseService } from '../course.service';
 import { QrCode } from '../../../core/components/qr-code/qr-code';
 import { QrCodeRenderer } from '../../../core/components/qr-code/qr-code-renderer';
@@ -254,14 +256,51 @@ describe('CourseDetail', () => {
       });
     }
 
-    it('banner reports a failed QR draw and printing stays possible', async () => {
+    it('banner reports a failed QR draw with its fix, and printing stays possible', async () => {
       spyOn(TestBed.inject(QrCodeRenderer), 'render').and.rejectWith(new Error('overflow'));
       spyOn(console, 'error');
       create();
       await flush();
 
-      expect(banner()).toContain('QR Code 產生失敗');
+      expect(banner()).toBe('列印PDF 將不含 QR Code：QR Code 產生失敗。可重新整理頁面再試，或直接列印（不含 QR Code）');
       expect(printButton().disabled).toBeFalse();
+    });
+
+    it('sits between 返回 and 編輯 in the header, with the Save-as-PDF tooltip on its wrapper', () => {
+      spyOn(TestBed.inject(QrCodeRenderer), 'render').and.resolveTo();
+      const el = create();
+
+      const labels = Array.from(el.querySelectorAll('.page-header .actions button')).map((b) => b.textContent?.trim());
+      expect(labels).toEqual(['返回', '列印PDF', '編輯', '刪除']);
+      const wrapper = el.querySelector('[data-print]')!.parentElement!;
+      const tooltip = fixture.debugElement.query((d) => d.nativeElement === wrapper).injector.get(Tooltip);
+      expect(tooltip.content).toBe('在列印視窗的「目的地」選擇「另存為 PDF」');
+    });
+
+    it('banner and brochure apply the same today (eng F7)', () => {
+      spyOn(TestBed.inject(QrCodeRenderer), 'render').and.resolveTo();
+      service.getById.and.returnValue(of({ ...course, scheduleOff: '2026-10-21' })); // last live day
+      const el = create();
+
+      const brochure = fixture.debugElement.query((d) => d.componentInstance instanceof CourseBrochure)
+        .componentInstance as CourseBrochure;
+      expect(brochure.today()).toBe(fixture.componentInstance.today());
+      expect(banner()).toBeUndefined();
+      expect(el.querySelector('.print-only [data-b="qr"]')).not.toBeNull();
+    });
+
+    it('a second beforeprint without afterprint still restores the real title', async () => {
+      spyOn(TestBed.inject(QrCodeRenderer), 'render').and.resolveTo();
+      create();
+      await flush();
+      document.title = 'CMS';
+
+      window.dispatchEvent(new Event('beforeprint'));
+      window.dispatchEvent(new Event('beforeprint')); // afterprint was missed
+      expect(document.title).toBe('CCNP');
+
+      window.dispatchEvent(new Event('afterprint'));
+      expect(document.title).toBe('CMS');
     });
 
     it('shows no banner for a live course', async () => {
