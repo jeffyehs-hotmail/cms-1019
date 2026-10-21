@@ -14,7 +14,7 @@ Per-feature decisions that aren't obvious from the code. Read the section for a 
 | CourseGroup | 課程管理 › 課程群組 | smallint IDENTITY; minimal template |
 | Course | 課程管理 › 課程 | FKs + n-n + long texts + CourseRecomm string-key children; QR code; list in-place editing; pinned form toolbar |
 | FeaturedPromoItem | 首頁 › 上稿作業 | custom UI from `spec/custom/`: week grid per training center, 3 slots/day, copy/paste, slot swap |
-| Course brochure PDF (planned, not built) | 課程 detail › 列印PDF | plan approved in `docs/designs/course-brochure-pdf.md`; layout waits on the rep's Word sample in `spec/course/brochure/`; Chrome margin-box check before release |
+| Course brochure PDF | 課程 detail › 列印PDF | print-only `CourseBrochure` + `@page` margin boxes; `qrOmitReason` rule; provisional layout until the rep's Word sample; release checks pending (see Course section) |
 
 ## AppRole — 系統管理 Admin › 角色 (`database/auth.sql`)
 - Table PK `RoleId` (nvarchar), immutable on update (referenced by `AppUserRole`); `pkid` used for routes/PUT. Duplicate → 409.
@@ -70,9 +70,39 @@ Per-feature decisions that aren't obvious from the code. Read the section for a 
 - Filters: keyword (Title, OfficialTitle, CourseId, ProdCourseId, FriendlyUrl), partner / course group / publish status, ScheduleOn/Off ranges (inclusive), tri-state canRepeat. Sort `DisplayOrder ASC, pkid DESC`. Accepts `?partnerPkid=` / `?courseGroupPkid=` / `?publishStatusPkid=`.
 - New form defaults: ScheduleOn = today, ScheduleOff = Dec 31 of next year.
 - Lookups: `certifications` (`{ pkid, title, partnerName }`), `job-categories`, `courses` (`{ pkid, courseId, title }`).
-- Detail page 基本資料 shows a QR code (`<app-qr-code>`) of the public page `https://www.uuu.com.tw/Course/Show/{pkid}/{CourseId}` (`COURSE_SITE_URL` in `course-detail.ts`; CourseId is URL-encoded), titled with the CourseId and downloadable as `{CourseId}.png`.
+- Detail page 基本資料 shows a QR code (`<app-qr-code>`) of the public page `https://www.uuu.com.tw/Course/Show/{pkid}/{CourseId}` (`courseUrl` / `COURSE_SITE_URL` in `course.model.ts`; CourseId is URL-encoded), titled with the CourseId and downloadable as `{CourseId}.png`.
+- `publishStatusIsPublished` (read-only, from the `PublishStatus` JOIN; `IsPublished` is `bit NOT NULL`, verified 2026-10-21) is on GET by id and list rows.
 - **List page in-place editing** (`course-inline-edit.ts`): double-click any cell except 主代碼 / 原廠 / 課程群組; saved on blur (Enter commits, Escape cancels). Because list rows omit the long texts and n-n arrays and PUT replaces everything, a save does `getById` → `toCourseRequest(full, patch)` → `update`. Client validation mirrors the form/API (required, ASCII codes, non-negative numbers, 定價 integer, 點數 one decimal, valid dates, 上架日期 ≤ 下架日期) and keeps the cell open with an inline `.cell-error`; API 400/409 reverts the row and toasts `message`. 上架狀態 edits load the lookups on first use.
-- Not built (from `spec/sample1.spec.md`): copy, CourseRelatedLink / CourseRecomm sub-panels. Print to PDF is planned (`docs/designs/course-brochure-pdf.md`).
+- Not built (from `spec/sample1.spec.md`): copy, CourseRelatedLink / CourseRecomm sub-panels.
+
+### Course brochure (列印PDF), plan `docs/designs/course-brochure-pdf.md`
+- **What prints:** the detail page holds a hidden `.print-only` `<app-course-brochure [course] [today]>`.
+  - Under `@media print` it is the only visible content: app.scss hides the sidebar and toasts and unclips the shell; styles.scss hides body overlays.
+  - 列印PDF calls `window.print()`. All setup runs in a `window:beforeprint` handler (also hit by Ctrl+P): `document.title` = sanitized CourseId (the PDF name), and `--brochure-footer` on `<html>`. Both are restored on afterprint or destroy.
+  - Choose 「另存為 PDF」 in the dialog (tooltip on the button).
+- **QR rule:** `qrOmitReason(c, today)` in `course.model.ts`, checked in order: not published, then `scheduleOff < today`, then `scheduleOn > today`. Boundary days count as live.
+  - The detail page computes `today` once per load and passes it to the brochure, so banner and brochure agree.
+  - When the QR is omitted or fails to draw, a warn banner names the reason and the fix. To bring the QR back, set the status to 上架中 or adjust the dates.
+  - 列印PDF stays disabled until the brochure's QR is drawn (or omitted/failed). A print taken before that shows a warning toast.
+- **Knobs:** `course-brochure/course-brochure.config.ts` holds `BROCHURE_COMPANY`, `BROCHURE_CONTACT`, `BROCHURE_SECTIONS`, `SHOW_PRICE` (false) and `FOOTER_TITLE_MAX` (30). Sizes and colours are in `course-brochure.scss` (`--brochure-*` and pt values). All are provisional: retune them when the rep's Word sample lands in `spec/course/brochure/` (plan T5).
+- **Browser:** Chrome/Edge 131+ (`@page` margin boxes); other browsers are untested.
+  - Verified 2026-10-21 in headless Chromium: the `var(--brochure-footer)` footer and `counter(pages)` render on every page of a 6-page course.
+  - The built CSS keeps the `@page` block.
+- **Pending release checks** (record results here):
+  1. In interactive Chrome with default settings, confirm Ctrl+P / 列印PDF shows no Chrome URL/date/title header. Record the Chrome version. If the header appears, follow the plan's D20 fallbacks.
+  2. Open one draft, one expired and one future course on the public site; record whether each page exists.
+  3. Count live courses with an empty 課程大綱 (read-only query).
+  4. Compare 備註 / 其他資訊 with the public page for 3 real courses. If they are internal-only, remove them from `BROCHURE_SECTIONS`.
+  5. Time the rep from opening a course to a saved PDF (target < 2 min).
+  6. 30 and 90 days after launch, confirm the rep uses this instead of Word.
+- **Manual print QA:**
+  1. The interactive header check above.
+  2. A 3+ page course: no clipped lines, footer and page x / y on every page.
+  3. Print while hovering 列印PDF (no tooltip) and while a toast is showing (no toast).
+  4. Ctrl+P while the page loads (one wait line), and Ctrl+P right after load (warning toast if the QR wasn't drawn).
+  5. Draft / expired / future courses: banner text, and no QR in the PDF.
+  6. Print two other pages: no sidebar. This is an intentional global change.
+- **Data quirk:** some live courses have placeholder long texts (e.g. "string"), which print as-is.
 
 ## FeaturedPromoItem — 首頁 Home › 上稿作業 (`database/promotion.sql`, `spec/custom/FeaturedPromoItem/`)
 - Custom UI from screenshots, not the list/detail/form template: one route `/featured-promo-items`. Training-center tabs (`lookups/training-centers`, by DisplayOrder: 台北/新竹/台中/高雄/線上研討會; pkids 1,2,3,5,54), a Monday–Sunday week navigator, and per day 3 slot rows with +/− (move down/up), 編輯, 複製/貼上, 刪除. The editor opens inline in the row (`FeaturedPromoItemForm`, used for Edit, New and Paste).
