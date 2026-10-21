@@ -14,6 +14,14 @@ class Host {
   readonly filename = signal<string | undefined>(undefined);
 }
 
+@Component({
+  imports: [QrCode],
+  template: `<app-qr-code [text]="text()" title="CCNP" [size]="100" variant="print" />`,
+})
+class PrintHost {
+  readonly text = signal('https://www.uuu.com.tw/Course/Show/42/CCNP');
+}
+
 describe('QrCode', () => {
   let fixture: ComponentFixture<Host>;
   let host: Host;
@@ -43,7 +51,7 @@ describe('QrCode', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [Host],
+      imports: [Host, PrintHost],
       providers: [provideNoopAnimations()],
     }).compileComponents();
   });
@@ -116,5 +124,73 @@ describe('QrCode', () => {
     await new Promise((r) => setTimeout(r, 0));
     fixture.detectChanges();
     expect((el().querySelector('[data-qr-download] button') as HTMLButtonElement).disabled).toBeFalse();
+  });
+
+  it('defaults to the screen variant: caption and 下載 are shown', async () => {
+    await create();
+    expect(el().querySelector('[data-qr-title]')).not.toBeNull();
+    expect(el().querySelector('[data-qr-download]')).not.toBeNull();
+  });
+
+  it('a rejected render sets failed, logs the cause and never becomes ready', async () => {
+    const renderer = TestBed.inject(QrCodeRenderer);
+    const render = spyOn(renderer, 'render').and.rejectWith(new Error('code length overflow'));
+    const log = spyOn(console, 'error');
+    await create();
+
+    expect(qr().failed()).toBeTrue();
+    expect(qr().ready()).toBeFalse();
+    expect(log).toHaveBeenCalledWith('[QrCode] render failed', jasmine.objectContaining({
+      text: 'https://www.uuu.com.tw/Course/Show/42/CCNP',
+    }));
+
+    render.and.resolveTo();
+    host.text.set('https://www.uuu.com.tw/Course/Show/43/AZ900');
+    fixture.detectChanges();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(qr().failed()).toBeFalse();
+    expect(qr().ready()).toBeTrue();
+  });
+
+  describe('print variant', () => {
+    let printFixture: ComponentFixture<PrintHost>;
+    const printEl = () => printFixture.nativeElement as HTMLElement;
+    const printCanvas = () => printEl().querySelector('canvas') as HTMLCanvasElement;
+
+    async function createPrint(): Promise<void> {
+      printFixture = TestBed.createComponent(PrintHost);
+      printFixture.detectChanges();
+      await printFixture.whenStable();
+      await new Promise((r) => setTimeout(r, 0));
+      printFixture.detectChanges();
+    }
+
+    it('has no caption or 下載', async () => {
+      await createPrint();
+      expect(printEl().querySelector('[data-qr-title]')).toBeNull();
+      expect(printEl().querySelector('[data-qr-download]')).toBeNull();
+    });
+
+    it('draws at 3× pixels but keeps the CSS size at `size`', async () => {
+      await createPrint();
+      expect(printCanvas().width).toBe(300);
+      expect(printCanvas().style.width).toBe('100px');
+      expect(printCanvas().getBoundingClientRect().width).toBe(100);
+    });
+
+    it('keeps the canvas hidden until the draw finishes', async () => {
+      const renderer = TestBed.inject(QrCodeRenderer);
+      let resolve!: () => void;
+      spyOn(renderer, 'render').and.returnValue(new Promise<void>((r) => (resolve = r)));
+      printFixture = TestBed.createComponent(PrintHost);
+      printFixture.detectChanges();
+
+      expect(getComputedStyle(printCanvas()).visibility).toBe('hidden');
+
+      resolve();
+      await new Promise((r) => setTimeout(r, 0));
+      printFixture.detectChanges();
+      expect(getComputedStyle(printCanvas()).visibility).toBe('visible');
+    });
   });
 });
