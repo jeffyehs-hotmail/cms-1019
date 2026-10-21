@@ -1,3 +1,8 @@
+/office-hours 
+
+allow user to do token consumption pivot table analysis
+    
+
 /mattpocock-skills:grill-me 
 
 new feature: agent token comsumption report
