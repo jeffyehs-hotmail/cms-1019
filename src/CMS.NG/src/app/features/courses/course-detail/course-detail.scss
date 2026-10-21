@@ -31,3 +31,22 @@
 .qr-field label .muted {
   font-weight: 400;
 }
+
+.qr-banner {
+  margin-bottom: 1rem;
+}
+
+.print-only {
+  display: none;
+}
+
+@media print {
+  // Inverse hide: print only the brochure, whatever else the page grows (eng re-run V3).
+  :host > :not(.print-only) {
+    display: none;
+  }
+
+  .print-only {
+    display: block;
+  }
+}

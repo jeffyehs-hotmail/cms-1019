@@ -96,6 +96,26 @@
   padding: 1.25rem 1.5rem;
 }
 
+@media print {
+  // The 100vh shell and the .content scroll box would clip printing to one page (eng re-run E1).
+  :host,
+  .layout {
+    display: block;
+    height: auto;
+  }
+  .sidebar {
+    display: none;
+  }
+  .content {
+    overflow: visible;
+    padding: 0;
+  }
+  // p-toast / p-confirmDialog sit beside .layout inside app-root; a visible toast would print (eng F2).
+  :host > :not(.layout) {
+    display: none;
+  }
+}
+
 .layout.collapsed {
   .sidebar {
     width: 56px;

@@ -18,6 +18,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap; // the button row drops under the title on narrow screens (design review D14)
   gap: 1rem;
   background: #fff;
   border: 1px solid #e5e7eb;
@@ -42,7 +43,15 @@ body {
 
   .actions {
     display: flex;
+    flex-wrap: wrap;
     gap: 0.5rem;
+  }
+}
+
+/* Overlays appended to <body> (pTooltip, appendTo="body" panels) never print (eng re-run V2). */
+@media print {
+  body > :not(app-root) {
+    display: none;
   }
 }
 

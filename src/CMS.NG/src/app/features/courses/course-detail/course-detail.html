@@ -3,6 +3,18 @@
   <div class="actions">
     <p-button label="返回" icon="pi pi-arrow-left" severity="secondary" (onClick)="back()" />
     @if (course(); as c) {
+      <!-- Disabled buttons get no hover events, so the tooltip sits on a wrapper (same as 刪除). -->
+      <span pTooltip="在列印視窗的「目的地」選擇「另存為 PDF」" tooltipPosition="bottom">
+        <p-button
+          label="列印PDF"
+          icon="pi pi-print"
+          severity="secondary"
+          [outlined]="true"
+          [disabled]="!printReady()"
+          (onClick)="print()"
+          data-print
+        />
+      </span>
       <p-button label="編輯" icon="pi pi-pencil" (onClick)="edit()" />
       <span [pTooltip]="inUse(c) ? '使用中無法刪除' : undefined">
         <p-button
@@ -17,6 +29,12 @@
     }
   </div>
 </div>
+
+@if (qrBanner(); as msg) {
+  <div class="qr-banner" data-qr-banner>
+    <p-message severity="warn">{{ msg }}</p-message>
+  </div>
+}
 
 @if (course(); as c) {
   <section class="page-card">
@@ -159,3 +177,12 @@
 } @else if (notFound()) {
   <section class="page-card muted">找不到此課程資料。</section>
 }
+
+<!-- Hidden on screen; the only thing printed from this page (eng review D7). -->
+<div class="print-only">
+  @if (course(); as c) {
+    <app-course-brochure [course]="c" [today]="today()" />
+  } @else if (!notFound()) {
+    <p>請於頁面載入完成後再列印</p>
+  }
+</div>

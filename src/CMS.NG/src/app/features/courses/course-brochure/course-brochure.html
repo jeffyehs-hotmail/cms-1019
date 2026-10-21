@@ -1,0 +1,48 @@
+@let c = course();
+<article class="brochure">
+  <header class="title-block">
+    <div class="titles">
+      <div class="company" data-b="company">{{ company }}</div>
+      <h1 class="title" data-b="title">{{ c.title }}</h1>
+      @if (c.officialTitle) {
+        <div class="official-title" data-b="officialTitle">{{ c.officialTitle }}</div>
+      }
+    </div>
+    @if (omitReason() === null) {
+      <div class="qr" data-b="qr">
+        <app-qr-code [text]="url()" [title]="c.courseId" [size]="qrSize" variant="print" />
+        <div class="qr-cue">掃描查看課程詳情</div>
+        <div class="qr-url" data-b="url">{{ displayUrl() }}</div>
+      </div>
+    }
+  </header>
+
+  @if (facts()) {
+    <p class="facts" data-b="facts">{{ facts() }}</p>
+  }
+  @if (certifications()) {
+    <p class="facts" data-b="certifications">認證：{{ certifications() }}</p>
+  }
+  @if (showPrice) {
+    <p class="facts" data-b="price">定價：NT$ {{ c.listPrice | number: '1.0-0' }}</p>
+  }
+  <hr class="rule" />
+
+  @if (!hasContent()) {
+    <p class="fallback" data-b="fallback">詳細課程內容請洽業務</p>
+  }
+  @for (s of sections(); track s.label) {
+    <section class="section" [attr.data-b-section]="s.label">
+      <h2>{{ s.label }}</h2>
+      <div class="body">{{ s.text }}</div>
+    </section>
+  }
+
+  @if (contact.length) {
+    <footer class="contact" data-b="contact">
+      @for (k of contact; track k.label) {
+        <span>{{ k.label }}：{{ k.value }}</span>
+      }
+    </footer>
+  }
+</article>

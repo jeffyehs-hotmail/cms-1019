@@ -1,0 +1,111 @@
+// Provisional brochure look: flat document, no cards/shadows/radius (design review D10).
+// Sizes follow design review D12 and get retuned against the rep's Word sample (T5).
+
+// Page geometry and footer via @page margin boxes (eng re-run D20). --brochure-footer is set on
+// <html> by the detail page's beforeprint handler; the "" fallback keeps the box empty otherwise.
+// Lives in component styles so it only applies while a brochure is on the page.
+@page {
+  size: A4;
+  margin: 18mm;
+
+  @bottom-left {
+    content: var(--brochure-footer, "");
+    font-size: 8pt;
+    color: #64748b;
+  }
+
+  @bottom-right {
+    content: counter(page) " / " counter(pages);
+    font-size: 8pt;
+    color: #64748b;
+  }
+}
+
+:host {
+  --brochure-text: #1e293b;
+  --brochure-muted: #64748b;
+  --brochure-rule: #e5e7eb;
+
+  display: block;
+  color: var(--brochure-text);
+  font-size: 10.5pt;
+  line-height: 1.6;
+}
+
+.title-block {
+  display: grid;
+  grid-template-columns: 1fr 30mm;
+  gap: 6mm;
+  align-items: start;
+  break-inside: avoid;
+}
+
+.company {
+  font-size: 9pt;
+  color: var(--brochure-muted);
+}
+
+.title {
+  margin: 1mm 0 0;
+  font-size: 20pt;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.official-title {
+  font-size: 12pt;
+  color: var(--brochure-muted);
+}
+
+.qr {
+  text-align: center;
+}
+
+.qr-cue,
+.qr-url {
+  font-size: 8pt;
+  color: var(--brochure-muted);
+}
+
+.qr-url {
+  overflow-wrap: anywhere;
+}
+
+.facts {
+  margin: 2mm 0 0;
+}
+
+.rule {
+  border: 0;
+  border-top: 0.5pt solid var(--brochure-rule);
+  margin: 4mm 0;
+}
+
+.fallback {
+  color: var(--brochure-muted);
+  margin: 5mm 0 0;
+}
+
+.section {
+  h2 {
+    margin: 5mm 0 1.5mm;
+    font-size: 12.5pt;
+    font-weight: 700;
+    break-after: avoid;
+  }
+
+  .body {
+    white-space: pre-wrap;
+    orphans: 3;
+    widows: 3;
+  }
+}
+
+.contact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2mm 6mm;
+  margin-top: 8mm;
+  color: var(--brochure-muted);
+  break-inside: avoid;
+}
