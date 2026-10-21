@@ -14,9 +14,12 @@ public class CmsApiFactory : WebApplicationFactory<Program>
     public FakePublishStatusRepository PublishStatuses { get; } = new();
     public FakePartnerRepository Partners { get; } = new();
     public FakeCourseGroupRepository CourseGroups { get; } = new();
-    public FakeCourseRepository Courses { get; } = new();
+    public FakeCourseRepository Courses { get; }
     public FakeFeaturedPromoItemRepository FeaturedPromoItems { get; } = new();
     public FakeAuthRepository Auth { get; } = new();
+
+    // Courses JOIN against the status fake (description + IsPublished), so it is built after PublishStatuses.
+    public CmsApiFactory() => Courses = new FakeCourseRepository(PublishStatuses);
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {

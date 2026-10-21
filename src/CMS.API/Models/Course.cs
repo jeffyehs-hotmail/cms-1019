@@ -20,6 +20,8 @@ public class Course
     public byte PublishStatusPkid { get; set; }
     /// <summary>PublishStatus.Description (JOIN).</summary>
     public string PublishStatusDescription { get; set; } = string.Empty;
+    /// <summary>PublishStatus.IsPublished (JOIN; NOT NULL bit). The brochure omits the QR code when false.</summary>
+    public bool PublishStatusIsPublished { get; set; }
 
     public DateOnly ScheduleOn { get; set; }
     public DateOnly ScheduleOff { get; set; }

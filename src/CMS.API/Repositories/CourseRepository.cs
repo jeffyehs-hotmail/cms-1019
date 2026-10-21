@@ -14,6 +14,7 @@ public class CourseRepository(IDbConnectionFactory db) : ICourseRepository
         c.Partner_pkid AS PartnerPkid, p.Name AS PartnerName,
         c.CourseGroup_pkid AS CourseGroupPkid, g.Description AS CourseGroupDescription,
         c.PublishStatus_pkid AS PublishStatusPkid, s.Description AS PublishStatusDescription,
+        s.IsPublished AS PublishStatusIsPublished,
         c.ScheduleOn, c.ScheduleOff, c.Hour, c.ListPrice, c.LearningCredit, c.CanRepeat,
         (SELECT COUNT(*) FROM CourseFAQ f WHERE f.Course_pkid = c.pkid) AS CourseFaqCount,
         (SELECT COUNT(*) FROM CourseRelatedLink l WHERE l.Course_pkid = c.pkid) AS CourseRelatedLinkCount,

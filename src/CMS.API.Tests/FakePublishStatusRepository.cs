@@ -57,6 +57,16 @@ public class FakePublishStatusRepository : IPublishStatusRepository
         }
     }
 
+    /// <summary>Synchronous lookup for other fakes that JOIN against statuses (FakeCourseRepository).</summary>
+    public PublishStatus? Find(byte pkid)
+    {
+        lock (_lock)
+        {
+            var row = _rows.FirstOrDefault(s => s.Pkid == pkid);
+            return row is null ? null : Copy(row);
+        }
+    }
+
     public Task<bool> ExistsAsync(byte pkid)
     {
         lock (_lock)

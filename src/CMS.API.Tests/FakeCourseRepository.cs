@@ -4,12 +4,12 @@ using CMS.API.Repositories;
 namespace CMS.API.Tests;
 
 /// <summary>In-memory ICourseRepository so endpoint tests run without SQL Server.</summary>
-public class FakeCourseRepository : ICourseRepository
+/// <remarks>Publish status description and IsPublished come from the factory's status fake, like the SQL JOIN.</remarks>
+public class FakeCourseRepository(FakePublishStatusRepository publishStatuses) : ICourseRepository
 {
     // Reference data the FK / n-n checks validate against.
     public static readonly Dictionary<short, string> Partners = new() { [1] = "Microsoft", [3] = "Cisco" };
     public static readonly Dictionary<short, string> CourseGroups = new() { [10] = "Azure", [11] = "CCNA" };
-    public static readonly Dictionary<byte, string> PublishStatuses = new() { [1] = "草稿", [2] = "上架中", [3] = "已下架" };
     public static readonly List<CertificationLookup> Certifications =
     [
         new() { Pkid = 1, Title = "Azure Administrator", PartnerName = "Microsoft" },
@@ -50,7 +50,7 @@ public class FakeCourseRepository : ICourseRepository
         },
     ];
 
-    private static Course Copy(Course c, bool full) => new()
+    private Course Copy(Course c, bool full) => new()
     {
         Pkid = c.Pkid,
         Title = c.Title,
@@ -64,7 +64,8 @@ public class FakeCourseRepository : ICourseRepository
         CourseGroupPkid = c.CourseGroupPkid,
         CourseGroupDescription = c.CourseGroupPkid is { } g ? CourseGroups.GetValueOrDefault(g) : null,
         PublishStatusPkid = c.PublishStatusPkid,
-        PublishStatusDescription = PublishStatuses.GetValueOrDefault(c.PublishStatusPkid, ""),
+        PublishStatusDescription = publishStatuses.Find(c.PublishStatusPkid)?.Description ?? "",
+        PublishStatusIsPublished = publishStatuses.Find(c.PublishStatusPkid)?.IsPublished ?? false,
         ScheduleOn = c.ScheduleOn,
         ScheduleOff = c.ScheduleOff,
         Hour = c.Hour,
@@ -140,7 +141,7 @@ public class FakeCourseRepository : ICourseRepository
         {
             PartnerExists = Partners.ContainsKey(r.PartnerPkid),
             CourseGroupExists = r.CourseGroupPkid is not { } g || CourseGroups.ContainsKey(g),
-            PublishStatusExists = PublishStatuses.ContainsKey(r.PublishStatusPkid),
+            PublishStatusExists = publishStatuses.Find(r.PublishStatusPkid) is not null,
             MissingCertificationPkids = r.CertificationPkids.Distinct()
                 .Where(id => Certifications.All(c => c.Pkid != id)).ToList(),
             MissingJobCategoryPkids = r.JobCategoryPkids.Distinct()

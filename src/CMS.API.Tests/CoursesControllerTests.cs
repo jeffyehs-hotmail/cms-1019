@@ -126,6 +126,30 @@ public class CoursesControllerTests : IDisposable
         Assert.Equal("系統管理", Assert.Single(course.JobCategories).Description);
     }
 
+    [Fact]
+    public async Task GetByIdAndList_ReturnPublishStatusIsPublished()
+    {
+        var published = await _client.GetFromJsonAsync<Course>($"{Url}/1"); // status 2 上架中
+        var draft = await _client.GetFromJsonAsync<Course>($"{Url}/2");     // status 1 草稿
+        var rows = await _client.GetFromJsonAsync<List<Course>>(Url);
+
+        Assert.True(published!.PublishStatusIsPublished);
+        Assert.False(draft!.PublishStatusIsPublished);
+        Assert.True(rows!.Single(c => c.Pkid == 1).PublishStatusIsPublished);
+    }
+
+    [Fact]
+    public async Task PublishStatusIsPublished_FollowsTheStatusRowFlag_NotThePkid()
+    {
+        await _factory.PublishStatuses.UpdateAsync(
+            new PublishStatusRequest { Pkid = 2, Description = "上架中", IsPublished = false });
+
+        var course = await _client.GetFromJsonAsync<Course>($"{Url}/1");
+
+        Assert.Equal(2, course!.PublishStatusPkid);
+        Assert.False(course.PublishStatusIsPublished);
+    }
+
     [Theory]
     [InlineData(99)]
     [InlineData(0)]
