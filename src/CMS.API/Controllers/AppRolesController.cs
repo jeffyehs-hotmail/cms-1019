@@ -1,11 +1,14 @@
 using CMS.API.Models;
 using CMS.API.Repositories;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CMS.API.Controllers;
 
+/// <summary>Admin role only (403 otherwise): role membership decides who is Admin.</summary>
 [ApiController]
 [Route("api/app-roles")]
+[Authorize(Roles = AppUsersController.AdminRole)]
 public class AppRolesController(IAppRoleRepository repo) : ControllerBase
 {
     [HttpGet]

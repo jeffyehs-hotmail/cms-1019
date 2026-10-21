@@ -15,7 +15,7 @@ namespace CMS.API.Tests;
 /// <summary>Global JWT bearer authorization: every controller needs a login token except AuthController.</summary>
 public class AuthorizationTests : IDisposable
 {
-    private const string Protected = "/api/app-roles";
+    private const string Protected = "/api/course-groups";   // any signed-in user (not role-limited)
 
     private readonly CmsApiFactory _factory = new();
 

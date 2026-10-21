@@ -417,6 +417,44 @@ public class AppUsersControllerTests : IDisposable
         Assert.Equal(HttpStatusCode.NotFound, res.StatusCode);
     }
 
+    // ---------- Admin only ----------
+    // Regression: ISSUE-002 — any signed-in user could PUT itself into the Admin role (bypassing the Admin-only
+    // reset-password) and issue or revoke anyone's agent token.
+    // Found by /qa on 2026-10-21
+    // Report: .gstack/qa-reports/qa-report-cms-api-2026-10-21.md
+
+    [Theory]
+    [InlineData("GET", "")]
+    [InlineData("POST", "/query")]
+    [InlineData("GET", "/1")]
+    [InlineData("POST", "")]
+    [InlineData("PUT", "")]
+    [InlineData("DELETE", "/1")]
+    [InlineData("POST", "/1/regenerate-agent-token")]
+    [InlineData("POST", "/1/revoke-agent-token")]
+    public async Task EveryAction_NonAdmin_Returns403WithMessage(string method, string path)
+    {
+        var res = await ClientAs("User").SendAsync(
+            new HttpRequestMessage(new HttpMethod(method), Url + path) { Content = JsonContent.Create(new { }) });
+
+        Assert.Equal(HttpStatusCode.Forbidden, res.StatusCode);
+        Assert.Equal(JwtAuthentication.Forbidden, await MessageOf(res));
+    }
+
+    [Fact]
+    public async Task Update_NonAdminGrantingItselfAdmin_Returns403_AndKeepsRoles()
+    {
+        var before = (await _client.GetFromJsonAsync<AppUser>($"{Url}/3"))!;
+        var req = NewRequest(pkid: 3, userId: before.UserId);
+        req.RoleIds = ["Admin", "User"];
+
+        var res = await ClientAs("User").PutAsJsonAsync(Url, req);
+
+        Assert.Equal(HttpStatusCode.Forbidden, res.StatusCode);
+        var after = (await _client.GetFromJsonAsync<AppUser>($"{Url}/3"))!;
+        Assert.Equal(before.Roles.Select(r => r.RoleId), after.Roles.Select(r => r.RoleId));
+    }
+
     // ---------- Lookup ----------
 
     [Fact]

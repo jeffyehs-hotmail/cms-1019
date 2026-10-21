@@ -6,11 +6,13 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace CMS.API.Controllers;
 
+/// <summary>Admin role only (403 otherwise): otherwise a signed-in user could grant itself Admin or take over agent tokens.</summary>
 [ApiController]
 [Route("api/app-users")]
+[Authorize(Roles = AdminRole)]
 public class AppUsersController(IAppUserRepository repo, TimeProvider time) : ControllerBase
 {
-    private const string AdminRole = "Admin";
+    public const string AdminRole = "Admin";
     /// <summary>Taiwan has no DST, so Taipei time is always UTC+8.</summary>
     private static readonly TimeSpan TaipeiOffset = TimeSpan.FromHours(8);
 
@@ -57,9 +59,8 @@ public class AppUsersController(IAppUserRepository repo, TimeProvider time) : Co
 
     /// <summary>
     /// Resets the password to SHA-256(SysConfig appConfig.defaultPassword) with PasswordUpdatedTime = now (Taipei time).
-    /// Admin role only (403 otherwise); the response carries no password or hash.
+    /// The response carries no password or hash.
     /// </summary>
-    [Authorize(Roles = AdminRole)]
     [HttpPost("{id:int}/reset-password")]
     public async Task<IActionResult> ResetPassword(int id)
     {
