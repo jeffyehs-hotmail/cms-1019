@@ -48,10 +48,12 @@ body {
   }
 }
 
-/* Overlays appended to <body> (pTooltip, appendTo="body" panels) never print (eng re-run V2). */
+/* Overlays appended to <body> (pTooltip, appendTo="body" panels) never print (eng re-run V2).
+   !important: PrimeNG sets display inline on these (e.g. the tooltip's display: inline-block), which
+   would otherwise win, print the overlay over the page and make Chrome shrink-to-fit it (QA ISSUE-001). */
 @media print {
   body > :not(app-root) {
-    display: none;
+    display: none !important;
   }
 }
 
