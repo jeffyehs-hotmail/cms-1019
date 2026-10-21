@@ -45,6 +45,9 @@ Read this before adding or changing UI (`src/CMS.NG`).
   - Global print rules live only in app.scss (shell unclip, sidebar and toasts hidden) and styles.scss (body overlays hidden).
   - `@page` rules go in the printable component's own scss, so they apply only while it is rendered.
   - Do print setup in `@HostListener('window:beforeprint')` so Ctrl+P works too, and undo it on `afterprint` and in `ngOnDestroy`.
+  - Print hide rules for PrimeNG overlays need `display: none !important`. PrimeNG sets `display` inline (pTooltip uses `inline-block`), so a plain rule loses. The tooltip of the print button is usually still open when the dialog opens: it would print over the page and make Chrome shrink-to-fit everything.
+  - Karma can't apply print media, so verify print output as a headless PDF (gstack browse: dispatch `beforeprint`, then `pdf <abs path> --prefer-css-page-size`, then dispatch `afterprint`).
+  - Headless PDFs never show Chrome's own URL/date header, so that needs a manual check in interactive Chrome.
 - Shared `core/components/qr-code/` (`<app-qr-code [text] [title] [filename?] [size?] [variant?]>`, `variant="print"` = no border/caption/下載, 3× pixels at `size` CSS px, hidden until drawn; `failed` signal on a rejected render): renders with the `qrcode` npm package via the injectable `QrCodeRenderer` (spy it in page specs: `spyOn(TestBed.inject(QrCodeRenderer), 'render').and.resolveTo()` then assert `args[1]`), and downloads a PNG named `{filename ?? title}.png` through a temporary `<a download>` (test with `spyOn(HTMLAnchorElement.prototype, 'click')`; a PNG data URL starts with `data:image/png;base64,iVBORw0KGgo`). The real render is async: `await new Promise(r => setTimeout(r, 0))` before asserting the canvas.
 
 ## Tests

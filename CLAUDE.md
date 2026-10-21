@@ -6,7 +6,7 @@ CMS: .NET 9 Web API (Dapper) + Angular 20 (standalone, PrimeNG 20) over an exist
 |---|---|
 | `docs/claude/workspace.md` | running/smoke-testing apps, DB queries, repo map, tool quirks |
 | `docs/claude/backend.md` | API code or backend tests |
-| `docs/claude/frontend.md` | UI or Angular specs |
+| `docs/claude/frontend.md` | UI, print layouts or Angular specs |
 | `docs/claude/features.md` | changing a feature or an FK-related one (feature index + per-table facts) |
 | `spec/code-gen.convention.md` | scaffolding with `/crud` (this repo wins on conflicts: no `core/models`, Moq, `RowAuditWriter`) |
 | `docs/designs/{feature}.md` | building a planned feature (Recommended Approach + accepted blocks are the spec; ledgers are history) |
@@ -31,6 +31,7 @@ cd src/CMS.NG && npx ng build               # prod build, budgets
 
 - APIs on :5000 and :4200 are usually running with old code: don't kill them. Build/test with `--artifacts-path <temp>`; smoke-test a second API on :5099.
 - Smoke tests hit the real DB: use `ZZ…` keys / 2099 dates, then delete the rows and their side-table rows.
+- A separate UI QA stack (Angular :4600 + API :5600) needs a local, never-committed `apiUrl` override: see `workspace.md`.
 - No Python. Write source with the Write tool; script small edits with single-quoted `node -e '…'`.
 
 ## Skill routing

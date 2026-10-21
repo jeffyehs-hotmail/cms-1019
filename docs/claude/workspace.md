@@ -42,6 +42,20 @@ cd src/CMS.NG && npx ng build               # production build (checks budgets)
 - Smoke-test new API code with a second copy on another port: `dotnet run --project CMS.API --artifacts-path <temp> --urls http://localhost:5099`.
 - `curl -d` mis-encodes Chinese on this machine, so send ASCII payloads.
 
+## Separate UI QA stack (Angular :4600 + API :5600)
+
+To QA branch code end to end without touching the :4200/:5000 servers:
+
+1. `dotnet run --project src/CMS.API --artifacts-path <temp> --urls http://localhost:5600`
+2. `npm ci` in a fresh worktree's `src/CMS.NG`, then `npx ng serve --port 4600`.
+3. The app calls an absolute `apiUrl`, so point `src/environments/environment.development.ts` at `http://localhost:5600/api`.
+   - Then run `git update-index --skip-worktree src/CMS.NG/src/environments/environment.development.ts` so the change can't be committed.
+   - Undo it with `--no-skip-worktree` plus a revert before shipping.
+   - CORS already allows any loopback origin.
+4. **gstack browse (headless Chromium):**
+   - Start its daemon with a plain `browse goto …` before running guarded commands. A daemon started under `gstack-qa-deadline run` dies when the guard exits.
+   - Pass absolute paths to `screenshot` / `pdf`. Relative paths resolve against the daemon's cwd and land in the worktree root.
+
 ## Smoke-test hygiene
 
 Smoke tests write real rows into the live `CMS` database.
