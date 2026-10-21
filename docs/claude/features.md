@@ -1,6 +1,20 @@
 # Feature notes
 
-Per-feature decisions that aren't obvious from the code. Read the section for a feature before changing it, or one that is FK-related to it. Full specs are in `spec/{sub-system}/{Table}.md`. Add a section here (and a row to the index in CLAUDE.md) when you build a new feature.
+Per-feature decisions that aren't obvious from the code. Read the section for a feature before changing it, or one that is FK-related to it. Full specs are in `spec/{sub-system}/{Table}.md`. Add a section and an index row here when you build a new feature.
+
+## Index
+
+| Feature | Menu | Key facts |
+|---|---|---|
+| AppRole | 系統管理 › 角色 | string PK `RoleId` + `pkid` route key; n-n users |
+| AppUser | 系統管理 › 使用者 | string PK `UserId`; `PasswordHash` backend-only; reset-password endpoint; n-n roles |
+| Auth | (API only) | `POST api/auth/login` → profile + 24h HS256 JWT, key from SysConfig appConfig; exact UserId, generic 401 |
+| PublishStatus | 系統管理 › 發布狀態 | tinyint non-IDENTITY PK |
+| Partner | 課程管理 › 原廠 | smallint IDENTITY; 5 child counts incl. Seminar (no FK) |
+| CourseGroup | 課程管理 › 課程群組 | smallint IDENTITY; minimal template |
+| Course | 課程管理 › 課程 | FKs + n-n + long texts + CourseRecomm string-key children; QR code; list in-place editing; pinned form toolbar |
+| FeaturedPromoItem | 首頁 › 上稿作業 | custom UI from `spec/custom/`: week grid per training center, 3 slots/day, copy/paste, slot swap |
+| Course brochure PDF (planned, not built) | 課程 detail › 列印PDF | plan approved in `docs/designs/course-brochure-pdf.md`; layout waits on the rep's Word sample in `spec/course/brochure/`; Chrome margin-box check before release |
 
 ## AppRole — 系統管理 Admin › 角色 (`database/auth.sql`)
 - Table PK `RoleId` (nvarchar), immutable on update (referenced by `AppUserRole`); `pkid` used for routes/PUT. Duplicate → 409.
@@ -58,7 +72,7 @@ Per-feature decisions that aren't obvious from the code. Read the section for a 
 - Lookups: `certifications` (`{ pkid, title, partnerName }`), `job-categories`, `courses` (`{ pkid, courseId, title }`).
 - Detail page 基本資料 shows a QR code (`<app-qr-code>`) of the public page `https://www.uuu.com.tw/Course/Show/{pkid}/{CourseId}` (`COURSE_SITE_URL` in `course-detail.ts`; CourseId is URL-encoded), titled with the CourseId and downloadable as `{CourseId}.png`.
 - **List page in-place editing** (`course-inline-edit.ts`): double-click any cell except 主代碼 / 原廠 / 課程群組; saved on blur (Enter commits, Escape cancels). Because list rows omit the long texts and n-n arrays and PUT replaces everything, a save does `getById` → `toCourseRequest(full, patch)` → `update`. Client validation mirrors the form/API (required, ASCII codes, non-negative numbers, 定價 integer, 點數 one decimal, valid dates, 上架日期 ≤ 下架日期) and keeps the cell open with an inline `.cell-error`; API 400/409 reverts the row and toasts `message`. 上架狀態 edits load the lookups on first use.
-- Not built (from `spec/sample1.spec.md`): copy, print to PDF, CourseRelatedLink / CourseRecomm sub-panels.
+- Not built (from `spec/sample1.spec.md`): copy, CourseRelatedLink / CourseRecomm sub-panels. Print to PDF is planned (`docs/designs/course-brochure-pdf.md`).
 
 ## FeaturedPromoItem — 首頁 Home › 上稿作業 (`database/promotion.sql`, `spec/custom/FeaturedPromoItem/`)
 - Custom UI from screenshots, not the list/detail/form template: one route `/featured-promo-items`. Training-center tabs (`lookups/training-centers`, by DisplayOrder: 台北/新竹/台中/高雄/線上研討會; pkids 1,2,3,5,54), a Monday–Sunday week navigator, and per day 3 slot rows with +/− (move down/up), 編輯, 複製/貼上, 刪除. The editor opens inline in the row (`FeaturedPromoItemForm`, used for Edit, New and Paste).
