@@ -27,7 +27,7 @@ cd tools/token-report && node --test
 ## Rules (every feature)
 
 - Tests with every change: backend via `CmsApiFactory` + in-memory fakes, Angular specs beside each file, `tools/` via `node --test`.
-- Auth on by default: endpoints need a login JWT, routes sit under the guarded `''` parent, role limits = `[Authorize(Roles = …)]` + hidden UI.
+- Auth on by default: endpoints need a login JWT, routes sit under the guarded `''` parent, role limits = `[Authorize(Roles = …)]` + hidden UI. An `adminOnly` menu item still needs the API attribute (hiding protects nothing).
 - Row audit: every repository Insert/Update/Delete logs through `RowAuditWriter` on the write's own transaction; every detail page and edit form shows `<app-row-audit-badge>`.
 - Errors: never catch unexpected exceptions (`UnhandledExceptionMiddleware` returns a safe 500); expected 400/401/403/409 return a Traditional Chinese `{ message }`. Each `error:` callback guards its toast with `!isServerError(err)` and its spec gets a 500 case.
 - Where `/crud` disagrees with the repo, follow the repo. After changing a feature, update `features.md`.
