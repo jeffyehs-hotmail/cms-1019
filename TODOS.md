@@ -38,6 +38,22 @@
 - **Effort:** human M / CC S. **Priority:** P3.
 - **Depends on / blocked by:** The brochure shipping first.
 
+## QA findings (deferred by /qa, 2026-10-21)
+
+### Sidebar squeezes content on phone-width screens (ISSUE-002)
+- **What:** At 375px the app shell's sidebar stays expanded (~240px) and leaves about 135px for page content.
+- **Severity / category:** Medium / visual. Workaround: the 收合選單 button.
+- **Repro:** open any page (e.g. `/featured-promo-items`) at 375×812 → content column is unusably narrow.
+- **Why deferred:** internal desktop admin app with no mobile contract; auto-collapse below a breakpoint (and how it interacts with the remembered collapse state) needs a product decision.
+- **Context:** `app.html` / `app.ts` (`collapsed` signal), `app.scss`. Report: `.gstack/qa-reports/qa-report-localhost-2026-10-21.md`.
+
+### Toasts cover the page-header action buttons (ISSUE-003)
+- **What:** `<p-toast position="top-right">` in `app.html` overlaps `.page-header .actions`, hiding 儲存/返回/編輯/刪除 while a toast is shown.
+- **Severity / category:** Low / UX. Clears after a few seconds or when closed.
+- **Repro:** save a CourseGroup, or submit a duplicate AppRole id → the toast sits over the header buttons.
+- **Fix idea:** offset the toast below the header (PrimeNG `[style]`/`top` offset) or move it to bottom-right.
+- **Context:** `src/CMS.NG/src/app/app.html:53`.
+
 ## Design
 
 ### Create DESIGN.md with /design-consultation
