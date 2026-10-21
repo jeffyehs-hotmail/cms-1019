@@ -30,6 +30,7 @@
     [sortOrder]="sort.order"
     (onSort)="onSort($event)"
     [showGridlines]="true"
+    [scrollable]="true"
   >
     <ng-template #header>
       <tr>
@@ -41,7 +42,7 @@
         <th pSortableColumn="imageFilename">圖檔名稱 <p-sortIcon field="imageFilename" /></th>
         <th pSortableColumn="courseCount" class="text-center">對應課程 <p-sortIcon field="courseCount" /></th>
         <th pSortableColumn="certificationCount" class="text-center">對應認證 <p-sortIcon field="certificationCount" /></th>
-        <th class="text-center col-actions">操作</th>
+        <th class="text-center col-actions" pFrozenColumn alignFrozen="right">操作</th>
       </tr>
     </ng-template>
 
@@ -55,7 +56,7 @@
         <td>{{ p.imageFilename }}</td>
         <td class="text-center">{{ p.courseCount }}</td>
         <td class="text-center">{{ p.certificationCount }}</td>
-        <td class="text-center col-actions">
+        <td class="text-center col-actions" pFrozenColumn alignFrozen="right">
           <p-button
             icon="pi pi-eye"
             [text]="true"
