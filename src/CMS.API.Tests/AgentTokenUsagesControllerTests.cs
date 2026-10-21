@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using CMS.API.Controllers;
 using CMS.API.Models;
 using CMS.API.Security;
 using Microsoft.AspNetCore.TestHost;
@@ -195,7 +196,23 @@ public class AgentTokenUsagesControllerTests : IDisposable
         new { sessionId = "s", project = "p", parserVersion = "1", rows = new[] { Row("2025-09-14") } },   // < today - 400
         new { sessionId = "s", project = "p", parserVersion = "1", rows = new[] { Row(), Row(model: "CLAUDE-OPUS-5-5") } },
         new { sessionId = "s", project = "p", parserVersion = "1", rows = new object[] { new { model = "m", inputTokens = 1 } } },
+        // Regression: ISSUE-001 — oversized token counts overflowed Cost decimal(18,6) (500 on ingest) and the report's
+        // bigint SUM (500 on query for every user); a long.MaxValue pair also wrapped the all-zero check.
+        // Found by /qa on 2026-10-21
+        // Report: .gstack/qa-reports/qa-report-cms-api-2026-10-21.md
+        new { sessionId = "s", project = "p", parserVersion = "1", rows = new[] { Row(input: AgentTokenUsagesController.MaxTokens + 1) } },
+        new { sessionId = "s", project = "p", parserVersion = "1", rows = new[] { Row(read: AgentTokenUsagesController.MaxTokens + 1) } },
+        new { sessionId = "s", project = "p", parserVersion = "1", rows = new[] { Row(input: long.MaxValue, output: 1) } },
     };
+
+    [Fact]
+    public async Task Report_MaxTokensPerField_IsAccepted()
+    {
+        const long max = AgentTokenUsagesController.MaxTokens;
+        var res = await Client().PostAsJsonAsync(Url, Report(rows: Row(input: max, output: max, write5m: max, write1h: max, read: max)));
+
+        Assert.Equal(HttpStatusCode.NoContent, res.StatusCode);
+    }
 
     [Theory]
     [MemberData(nameof(InvalidReports))]

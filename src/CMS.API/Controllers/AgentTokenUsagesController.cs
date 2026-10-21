@@ -12,6 +12,8 @@ namespace CMS.API.Controllers;
 public class AgentTokenUsagesController(IAgentTokenUsageRepository repo, TimeProvider time) : ControllerBase
 {
     public const int MaxRows = 500;
+    /// <summary>Per token field of a row; far above any real session-day, small enough that sums never overflow.</summary>
+    public const long MaxTokens = 1_000_000_000_000;
     private const string InvalidToken = "Agent Token 無效";
 
     /// <summary>Taiwan has no DST, so Taipei time is always UTC+8.</summary>
@@ -97,6 +99,10 @@ public class AgentTokenUsagesController(IAgentTokenUsageRepository repo, TimePro
             if (row.InputTokens < 0 || row.OutputTokens < 0 || row.CacheWrite5mTokens < 0
                 || row.CacheWrite1hTokens < 0 || row.CacheReadTokens < 0)
                 return Bad("Token 數不可為負數");
+            // Keeps the sum below, Cost decimal(18,6) and the report's bigint SUMs from overflowing.
+            if (row.InputTokens > MaxTokens || row.OutputTokens > MaxTokens || row.CacheWrite5mTokens > MaxTokens
+                || row.CacheWrite1hTokens > MaxTokens || row.CacheReadTokens > MaxTokens)
+                return Bad($"Token 數不可超過 {MaxTokens:N0}");
             if (row.InputTokens + row.OutputTokens + row.CacheWrite5mTokens + row.CacheWrite1hTokens + row.CacheReadTokens == 0)
                 return Bad($"{date:yyyy-MM-dd} {row.Model} 的 Token 數皆為 0");
             if (!seen.Add((date, row.Model.ToLowerInvariant())))
