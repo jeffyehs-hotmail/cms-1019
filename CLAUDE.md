@@ -48,3 +48,22 @@ cd src/CMS.NG && npx ng build               # production build (checks budgets)
 - An API on :5000 and `npm start` on :4200 are usually already running with old API code: don't kill them; build/test with `--artifacts-path <temp>` and smoke-test a second API copy on :5099.
 - Smoke tests write real DB rows: use `ZZ…` keys / 2099 dates and delete them (and side-table rows) afterwards.
 - No Python; write source with the Write tool, script small edits with single-quoted `node -e '…'`.
+
+## Skill routing
+
+When the user's request matches an available skill, invoke it via the Skill tool. Route only to skills in the session's available-skills list; answer directly for quick questions or small scoped edits.
+
+Key routing rules:
+- Product ideas/brainstorming → invoke /office-hours
+- Strategy/scope → invoke /plan-ceo-review
+- Architecture → invoke /plan-eng-review
+- Design system/plan review → invoke /design-consultation or /plan-design-review
+- Full review pipeline → invoke /autoplan
+- Bugs/errors → invoke /investigate
+- QA/testing site behavior → invoke /qa or /qa-only
+- Code review/diff check → invoke /review
+- Visual polish → invoke /design-review
+- Ship/deploy/PR → invoke /ship or /land-and-deploy
+- Save progress → invoke /context-save
+- Resume context → invoke /context-restore
+- Author a backlog-ready spec/issue → invoke /spec
