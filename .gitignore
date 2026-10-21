@@ -1,1 +1,5 @@
 .claude/worktrees/
+
+# gstack skills (installed locally, not project code)
+.claude/skills/*
+!.claude/skills/crud/
