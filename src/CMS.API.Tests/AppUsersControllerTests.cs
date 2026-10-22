@@ -256,7 +256,6 @@ public class AppUsersControllerTests : IDisposable
 
     // ---------- Reset password (Admin only) ----------
 
-    private static DateTime TaipeiNow() => DateTime.UtcNow.AddHours(8);
 
     private HttpClient ClientAs(params string[] roles)
     {
@@ -267,17 +266,17 @@ public class AppUsersControllerTests : IDisposable
     }
 
     [Fact]
-    public async Task ResetPassword_AsAdmin_StoresSha256OfSysConfigDefault_AndUpdatesTime()
+    public async Task ResetPassword_AsAdmin_StoresSha256OfSysConfigDefault_AndClearsTime()
     {
         _factory.AppUsers.AppConfigValue = """{"defaultPassword":"Fresh#Default9"}""";
-        var before = TaipeiNow();
+        _factory.AppUsers.Find(1)!.User.PasswordUpdatedTime = new DateTime(2026, 1, 1, 9, 0, 0);
         var res = await ClientAs("Admin").PostAsync($"{Url}/1/reset-password", null);
-        var after = TaipeiNow();
 
         Assert.Equal(HttpStatusCode.NoContent, res.StatusCode);
         var stored = _factory.AppUsers.Find(1)!;
         Assert.Equal(PasswordHasher.Hash("Fresh#Default9"), stored.PasswordHash);
-        Assert.InRange(stored.User.PasswordUpdatedTime!.Value, before, after); // Taipei time
+        // NULL marks "back on the default password" (spec/auth/AppUser.md; the UI shows 尚未變更（預設密碼）).
+        Assert.Null(stored.User.PasswordUpdatedTime);
     }
 
     [Fact]

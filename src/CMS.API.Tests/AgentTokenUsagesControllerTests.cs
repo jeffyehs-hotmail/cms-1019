@@ -355,6 +355,26 @@ public class AgentTokenUsagesControllerTests : IDisposable
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync($"{Url}/filter-options")).StatusCode);
     }
 
+    // Review finding (/ship 2026-10-22): the 系統管理 screens hid this from non-admins but the API let any signed-in
+    // user in (a User created and deleted a PublishStatus live). CLAUDE.md: an adminOnly menu item needs the API role check.
+    [Theory]
+    [InlineData("POST", "/query", "User")]
+    [InlineData("GET", "/filter-options", "User")]
+    [InlineData("POST", "/query", "admin")]   // role match is exact
+    public async Task Report_NonAdmin_Returns403WithMessage(string method, string path, string role)
+    {
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", CmsApiFactory.AccessToken("carol", "Carol", [role]));
+
+        var res = await client.SendAsync(
+            new HttpRequestMessage(new HttpMethod(method), Url + path) { Content = JsonContent.Create(new { }) });
+
+        Assert.Equal(HttpStatusCode.Forbidden, res.StatusCode);
+        Assert.Equal(JwtAuthentication.Forbidden,
+            (await res.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("message").GetString());
+    }
+
     private sealed class FixedTimeProvider(DateTimeOffset now) : TimeProvider
     {
         public override DateTimeOffset GetUtcNow() => now;

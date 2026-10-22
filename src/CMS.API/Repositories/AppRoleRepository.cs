@@ -123,11 +123,14 @@ public class AppRoleRepository(IDbConnectionFactory db, RowAuditWriter audit) : 
             WHERE pkid = @Pkid
             """, request, tx);
 
-        // n-n: delete-then-reinsert
+        // n-n: delete-then-reinsert; the audit row names added/removed members (granting Admin must be traceable).
+        var oldUsers = await conn.QueryAsync<string>(
+            "SELECT UserId FROM AppUserRole WHERE RoleId = @roleId", new { roleId }, tx);
         await conn.ExecuteAsync("DELETE FROM AppUserRole WHERE RoleId = @roleId", new { roleId }, tx);
         await InsertUsersAsync(conn, tx, roleId, request.UserIds);
 
-        await audit.LogUpdateAsync(Table, before, (await RowAuditWriter.LoadRowAsync(tx, Table, request.Pkid))!, tx);
+        await audit.LogUpdateAsync(Table, before, (await RowAuditWriter.LoadRowAsync(tx, Table, request.Pkid))!, tx,
+            RowAuditWriter.MemberChange("UserIds", oldUsers, request.UserIds));
         tx.Commit();
         return true;
     }

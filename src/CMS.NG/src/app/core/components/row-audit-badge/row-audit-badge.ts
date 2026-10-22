@@ -32,7 +32,10 @@ export class RowAuditBadge {
     effect((onCleanup) => {
       const tableName = this.tableName();
       const pkid = this.pkid();
-      untracked(() => this.rows.set(null));
+      untracked(() => {
+        this.rows.set(null);
+        this.failed.set(false); // a new record starts at 載入中…, not the previous record's error
+      });
       const sub = this.service.getHistory(tableName, pkid).subscribe({
         next: (rows) => {
           this.rows.set(rows);

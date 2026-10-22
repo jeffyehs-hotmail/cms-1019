@@ -1,5 +1,8 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json;
+using CMS.API.Security;
 using CMS.API.Models;
 
 namespace CMS.API.Tests;
@@ -84,5 +87,34 @@ public class RowAuditControllerTests : IDisposable
         var res = await _client.GetAsync($"{Url}?tableName=Course&pkid=1");
 
         Assert.Equal(HttpStatusCode.Unauthorized, res.StatusCode);
+    }
+
+    // Review finding (/ship 2026-10-22): the 系統管理 screens hid this from non-admins but the API let any signed-in
+    // user in (a User created and deleted a PublishStatus live). CLAUDE.md: an adminOnly menu item needs the API role check.
+    [Theory]
+    [InlineData("AppUser", "User")]
+    [InlineData("approle", "User")]    // table match ignores case, like the DB
+    [InlineData("AppUser", "admin")]    // role match is exact
+    public async Task Get_AdminTableAsNonAdmin_Returns403WithMessage(string table, string role)
+    {
+        _client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", CmsApiFactory.AccessToken("carol", "Carol", [role]));
+
+        var res = await _client.GetAsync($"{Url}?tableName={table}&pkid=1");
+
+        Assert.Equal(HttpStatusCode.Forbidden, res.StatusCode);
+        Assert.Equal(JwtAuthentication.Forbidden,
+            (await res.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("message").GetString());
+    }
+
+    [Fact]
+    public async Task Get_OtherTableAsNonAdmin_Returns200()
+    {
+        _client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", CmsApiFactory.AccessToken("carol", "Carol", ["User"]));
+
+        var res = await _client.GetAsync($"{Url}?tableName=Course&pkid=1");
+
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
     }
 }

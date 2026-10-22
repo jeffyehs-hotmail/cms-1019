@@ -50,7 +50,8 @@ export class AuthService {
 
   /**
    * Changes the signed-in user's own UserName, then refreshes it in sessionStorage and the shell.
-   * The token is kept as is (its `name` claim stays stale until the next login; nothing reads it).
+   * The token is kept as is: its `name` claim stays stale until the next login, so RowAudit rows written in this
+   * session still carry the old name (RowAuditWriter reads that claim).
    */
   updateProfile(request: UserProfileRequest): Observable<UserProfile> {
     return this.http.put<UserProfile>(this.profileUrl, request).pipe(

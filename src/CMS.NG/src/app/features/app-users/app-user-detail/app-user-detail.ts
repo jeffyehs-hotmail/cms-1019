@@ -28,10 +28,12 @@ import { errorMessage, isServerError } from '../../../core/utils/server-error';
     }
     .token-row {
       display: flex;
+      flex-wrap: wrap;
       gap: 0.5rem;
     }
     .token-row input {
       flex: 1;
+      min-width: 0;
       font-family: monospace;
     }
   `,

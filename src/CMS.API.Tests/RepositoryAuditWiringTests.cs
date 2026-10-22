@@ -63,10 +63,11 @@ public class RepositoryAuditWiringTests
         request.Pkid = pkid;
         request.RoleName = "ZZ 角色 2";
         request.PermissionLevel = 200;
+        request.UserIds = ["admin@example.com"]; // seed user (features.md › AppUser)
         await repo.UpdateAsync(request);
         await repo.DeleteAsync(pkid);
 
-        await AssertAuditsAsync("AppRole", pkid, ("Insert", "ZZaudit"), ("Update", "RoleName,PermissionLevel"), ("Delete", "ZZaudit"));
+        await AssertAuditsAsync("AppRole", pkid, ("Insert", "ZZaudit"), ("Update", "RoleName,PermissionLevel,UserIds +admin@example.com"), ("Delete", "ZZaudit"));
     }
 
     [DatabaseFact]
@@ -82,8 +83,9 @@ public class RepositoryAuditWiringTests
         request.Pkid = pkid;
         request.UserName = "ZZ 使用者 2";
         request.IsActive = false;
+        request.RoleIds = ["User"];
         await repo.UpdateAsync(request);
-        await repo.ResetPasswordAsync(pkid, "hash-2", now);
+        await repo.ResetPasswordAsync(pkid, "hash-2");
         await repo.SetAgentTokenHashAsync(pkid, "token-hash");
         await auth.UpdateUserNameAsync("ZZaudit", "ZZ 使用者 3");
         await auth.UpdatePasswordAsync("ZZaudit", "hash-3", now.AddDays(1));
@@ -91,8 +93,8 @@ public class RepositoryAuditWiringTests
 
         await AssertAuditsAsync("AppUser", pkid,
             ("Insert", "ZZaudit"),
-            ("Update", "UserName,IsActive"),
-            ("Update", "PasswordUpdatedTime,PasswordHash"),
+            ("Update", "UserName,IsActive,RoleIds +User"),
+            ("Update", "PasswordHash"),
             ("Update", "AgentTokenHash"),
             ("Update", "UserName"),
             ("Update", "PasswordUpdatedTime,PasswordHash"),

@@ -17,7 +17,8 @@ public interface IAppUserRepository
 
     Task<int> CreateAsync(AppUserRequest request, string passwordHash);
     Task<bool> UpdateAsync(AppUserRequest request);
-    Task<bool> ResetPasswordAsync(int pkid, string passwordHash, DateTime passwordUpdatedTime);
+    /// <summary>Sets the default-password hash and PasswordUpdatedTime = NULL (NULL = still on the default password).</summary>
+    Task<bool> ResetPasswordAsync(int pkid, string passwordHash);
 
     /// <summary>Sets AppUser.AgentTokenHash (null = revoke).</summary>
     Task<bool> SetAgentTokenHashAsync(int pkid, string? tokenHash);

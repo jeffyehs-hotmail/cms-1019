@@ -102,6 +102,27 @@ public class RowAuditWriterTests
         Assert.Equal("42", row.PrimaryKeyValues);
     }
 
+    // Review finding (/ship 2026-10-22): role-membership changes (e.g. granting Admin) were audited as an empty Update.
+    [Fact]
+    public async Task LogUpdate_appends_the_member_change_after_the_changed_properties()
+    {
+        var before = SampleCourse();
+        var after = Clone(before);
+        after.ListPrice = 1200m;
+
+        await Writer().LogUpdateAsync("Course", before, after,
+            memberChange: RowAuditWriter.MemberChange("UserIds", ["alice", "carol"], ["ALICE", "bob"]));
+
+        Assert.Equal("ListPrice,UserIds +bob -carol", Single().ActionDesc);
+    }
+
+    [Theory]
+    [InlineData(new[] { "alice" }, new[] { "Alice" }, null)]                     // case-insensitive, like the DB
+    [InlineData(new string[0], new[] { "bob", "alice" }, "UserIds +alice +bob")]
+    [InlineData(new[] { "bob", "alice" }, new string[0], "UserIds -alice -bob")]
+    public void MemberChange_lists_added_then_removed_members_sorted(string[] before, string[] after, string? expected)
+        => Assert.Equal(expected, RowAuditWriter.MemberChange("UserIds", before, after));
+
     [Fact]
     public async Task LogUpdate_writes_empty_ActionDesc_when_nothing_changed()
     {

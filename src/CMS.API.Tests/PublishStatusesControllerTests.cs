@@ -1,5 +1,8 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json;
+using CMS.API.Security;
 using CMS.API.Models;
 
 namespace CMS.API.Tests;
@@ -186,6 +189,31 @@ public class PublishStatusesControllerTests : IDisposable
     {
         var res = await _client.DeleteAsync($"{Url}/99");
         Assert.Equal(HttpStatusCode.NotFound, res.StatusCode);
+    }
+
+    // ---------- Admin only ----------
+    // Review finding (/ship 2026-10-22): the 系統管理 screens hid this from non-admins but the API let any signed-in
+    // user in (a User created and deleted a PublishStatus live). CLAUDE.md: an adminOnly menu item needs the API role check.
+
+    [Theory]
+    [InlineData("GET", "", "User")]
+    [InlineData("POST", "/query", "User")]
+    [InlineData("GET", "/1", "User")]
+    [InlineData("POST", "", "User")]
+    [InlineData("PUT", "", "User")]
+    [InlineData("DELETE", "/2", "admin")]   // role match is exact
+    public async Task EveryAction_NonAdmin_Returns403WithMessage(string method, string path, string role)
+    {
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", CmsApiFactory.AccessToken("carol", "Carol", [role]));
+
+        var res = await client.SendAsync(
+            new HttpRequestMessage(new HttpMethod(method), Url + path) { Content = JsonContent.Create(new { }) });
+
+        Assert.Equal(HttpStatusCode.Forbidden, res.StatusCode);
+        Assert.Equal(JwtAuthentication.Forbidden,
+            (await res.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("message").GetString());
     }
 
     // ---------- Lookup ----------

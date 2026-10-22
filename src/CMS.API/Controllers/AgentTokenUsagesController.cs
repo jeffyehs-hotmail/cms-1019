@@ -45,7 +45,9 @@ public class AgentTokenUsagesController(IAgentTokenUsageRepository repo, TimePro
     }
 
     /// <summary>Rows summed per (date, user, project, model). Missing dates default to the current Taipei month.</summary>
+    // Admin only (403 otherwise): every user's usage, costs and session titles; the page is in the adminOnly menu.
     [HttpPost("query")]
+    [Authorize(Roles = AppUsersController.AdminRole)]
     public async Task<ActionResult<IEnumerable<AgentTokenUsage>>> Query([FromBody] AgentTokenUsageQuery query)
     {
         var today = DateOnly.FromDateTime(TaipeiNow());
@@ -61,6 +63,7 @@ public class AgentTokenUsagesController(IAgentTokenUsageRepository repo, TimePro
     }
 
     [HttpGet("filter-options")]
+    [Authorize(Roles = AppUsersController.AdminRole)]
     public async Task<ActionResult<AgentTokenUsageFilterOptions>> GetFilterOptions()
         => Ok(await repo.GetFilterOptionsAsync());
 

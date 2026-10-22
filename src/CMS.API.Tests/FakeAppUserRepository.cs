@@ -160,14 +160,14 @@ public class FakeAppUserRepository : IAppUserRepository
         }
     }
 
-    public Task<bool> ResetPasswordAsync(int pkid, string passwordHash, DateTime passwordUpdatedTime)
+    public Task<bool> ResetPasswordAsync(int pkid, string passwordHash)
     {
         lock (_lock)
         {
             var row = _rows.FirstOrDefault(r => r.User.Pkid == pkid);
             if (row is null) return Task.FromResult(false);
             row.PasswordHash = passwordHash;
-            row.User.PasswordUpdatedTime = passwordUpdatedTime;
+            row.User.PasswordUpdatedTime = null;
             return Task.FromResult(true);
         }
     }

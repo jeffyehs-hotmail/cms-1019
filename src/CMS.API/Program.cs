@@ -53,7 +53,6 @@ builder.Services.AddScoped<IAuthRepository, AuthRepository>();
 builder.Services.AddScoped<IAgentTokenUsageRepository, AgentTokenUsageRepository>();
 builder.Services.AddScoped<IRowAuditRepository, RowAuditRepository>();
 builder.Services.AddScoped<RowAuditWriter>();
-builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddCmsJwtAuthentication();
 

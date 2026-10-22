@@ -132,16 +132,19 @@ public class AppUserRepository(IDbConnectionFactory db, RowAuditWriter audit) : 
             "UPDATE AppUser SET UserName = @UserName, IsActive = @IsActive WHERE pkid = @Pkid",
             new { request.UserName, request.IsActive, request.Pkid }, tx);
 
-        // n-n: delete-then-reinsert
+        // n-n: delete-then-reinsert; the audit row names added/removed roles (granting Admin must be traceable).
+        var oldRoles = await conn.QueryAsync<string>(
+            "SELECT RoleId FROM AppUserRole WHERE UserId = @userId", new { userId }, tx);
         await conn.ExecuteAsync("DELETE FROM AppUserRole WHERE UserId = @userId", new { userId }, tx);
         await InsertRolesAsync(conn, tx, userId, request.RoleIds);
 
-        await audit.LogUpdateAsync(Table, before, (await RowAuditWriter.LoadRowAsync(tx, Table, request.Pkid))!, tx);
+        await audit.LogUpdateAsync(Table, before, (await RowAuditWriter.LoadRowAsync(tx, Table, request.Pkid))!, tx,
+            RowAuditWriter.MemberChange("RoleIds", oldRoles, request.RoleIds));
         tx.Commit();
         return true;
     }
 
-    public async Task<bool> ResetPasswordAsync(int pkid, string passwordHash, DateTime passwordUpdatedTime)
+    public async Task<bool> ResetPasswordAsync(int pkid, string passwordHash)
     {
         using var conn = await db.OpenAsync();
         using var tx = conn.BeginTransaction();
@@ -150,8 +153,8 @@ public class AppUserRepository(IDbConnectionFactory db, RowAuditWriter audit) : 
         if (before is null) return false;
 
         await conn.ExecuteAsync(
-            "UPDATE AppUser SET PasswordHash = @passwordHash, PasswordUpdatedTime = @passwordUpdatedTime WHERE pkid = @pkid",
-            new { pkid, passwordHash, passwordUpdatedTime }, tx);
+            "UPDATE AppUser SET PasswordHash = @passwordHash, PasswordUpdatedTime = NULL WHERE pkid = @pkid",
+            new { pkid, passwordHash }, tx);
 
         await audit.LogUpdateAsync(Table, before, (await RowAuditWriter.LoadRowAsync(tx, Table, pkid))!, tx);
         tx.Commit();

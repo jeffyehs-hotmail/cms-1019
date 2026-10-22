@@ -102,11 +102,12 @@
   [visible]="!!issuedToken()"
   (visibleChange)="$event || closeTokenDialog()"
   [style]="{ width: '40rem' }"
+  [breakpoints]="{ '960px': '95vw' }"
   [closable]="true"
 >
   <p class="token-warning">請立即複製此 Token 並存入 <code>~/.claude/token-report.json</code>。關閉後將無法再次顯示。</p>
   <div class="token-row">
-    <input pInputText type="text" readonly [value]="issuedToken() ?? ''" data-field="issuedToken" />
+    <input pInputText type="text" readonly aria-label="Agent Token" [value]="issuedToken() ?? ''" data-field="issuedToken" />
     <p-button label="複製" icon="pi pi-copy" (onClick)="copyToken()" data-action="copy-token" />
   </div>
   <ng-template #footer>

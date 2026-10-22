@@ -10,11 +10,9 @@ namespace CMS.API.Controllers;
 [ApiController]
 [Route("api/app-users")]
 [Authorize(Roles = AdminRole)]
-public class AppUsersController(IAppUserRepository repo, TimeProvider time) : ControllerBase
+public class AppUsersController(IAppUserRepository repo) : ControllerBase
 {
     public const string AdminRole = "Admin";
-    /// <summary>Taiwan has no DST, so Taipei time is always UTC+8.</summary>
-    private static readonly TimeSpan TaipeiOffset = TimeSpan.FromHours(8);
 
     [HttpGet]
     public async Task<ActionResult<IEnumerable<AppUser>>> GetAll()
@@ -58,7 +56,8 @@ public class AppUsersController(IAppUserRepository repo, TimeProvider time) : Co
     }
 
     /// <summary>
-    /// Resets the password to SHA-256(SysConfig appConfig.defaultPassword) with PasswordUpdatedTime = now (Taipei time).
+    /// Resets the password to SHA-256(SysConfig appConfig.defaultPassword) with PasswordUpdatedTime = NULL, which marks
+    /// the account as on the default password again (spec/auth/AppUser.md; RowAudit keeps when and by whom).
     /// The response carries no password or hash.
     /// </summary>
     [HttpPost("{id:int}/reset-password")]
@@ -69,8 +68,7 @@ public class AppUsersController(IAppUserRepository repo, TimeProvider time) : Co
         var hash = await DefaultPasswordHashAsync();
         if (hash is null) return MissingDefaultPassword();
 
-        var now = time.GetUtcNow().ToOffset(TaipeiOffset).DateTime;
-        return await repo.ResetPasswordAsync(id, hash, now) ? NoContent() : NotFound();
+        return await repo.ResetPasswordAsync(id, hash) ? NoContent() : NotFound();
     }
 
     /// <summary>Issues a new agent token (the old one stops working). The plain token is returned only here.</summary>

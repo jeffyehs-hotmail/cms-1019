@@ -35,9 +35,28 @@ public class RowAuditWriter(IRowAuditRepository repository, IHttpContextAccessor
     public Task LogInsertAsync<T>(string tableName, T entity, IDbTransaction? tx = null) where T : class
         => WriteAsync(tableName, "Insert", entity, FirstStringValue(entity), tx);
 
-    /// <summary>ActionDesc = names of the properties whose value differs, comma-separated ("" when none).</summary>
-    public Task LogUpdateAsync<T>(string tableName, T before, T after, IDbTransaction? tx = null) where T : class
-        => WriteAsync(tableName, "Update", after, string.Join(",", ChangedPropertyNames(before, after)), tx);
+    /// <summary>
+    /// ActionDesc = names of the properties whose value differs, comma-separated ("" when none), then
+    /// <paramref name="memberChange"/> (see <see cref="MemberChange"/>) for n-n rows the entity itself doesn't hold.
+    /// </summary>
+    public Task LogUpdateAsync<T>(string tableName, T before, T after, IDbTransaction? tx = null, string? memberChange = null)
+        where T : class
+        => WriteAsync(tableName, "Update", after,
+            string.Join(",", ChangedPropertyNames(before, after).Append(memberChange).OfType<string>()), tx);
+
+    /// <summary>
+    /// "<paramref name="name"/> +added -removed" (case-insensitive, like the DB collation; each list sorted), or null
+    /// when the members are unchanged. E.g. AppRole membership lives in AppUserRole, not in the AppRole row.
+    /// </summary>
+    public static string? MemberChange(string name, IEnumerable<string> before, IEnumerable<string> after)
+    {
+        var old = before.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var now = after.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var changes = now.Where(m => !old.Contains(m)).Order(StringComparer.OrdinalIgnoreCase).Select(m => "+" + m)
+            .Concat(old.Where(m => !now.Contains(m)).Order(StringComparer.OrdinalIgnoreCase).Select(m => "-" + m))
+            .ToList();
+        return changes.Count == 0 ? null : $"{name} {string.Join(" ", changes)}";
+    }
 
     /// <summary>ActionDesc = value of the deleted entity's first string property.</summary>
     public Task LogDeleteAsync<T>(string tableName, T entity, IDbTransaction? tx = null) where T : class
