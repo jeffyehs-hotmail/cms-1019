@@ -169,6 +169,45 @@ public class AppRolesControllerTests : IDisposable
         Assert.Equal(HttpStatusCode.BadRequest, res.StatusCode);
     }
 
+    // ---------- Members ----------
+    // Regression: ISSUE-001 — unknown or case-duplicate member ids hit the AppUserRole FK / PK and returned 500.
+    // Found by /qa on 2026-10-22
+    // Report: .gstack/qa-reports/run-20261022T060024Z/qa-report-cms-2026-10-22.md
+
+    [Fact]
+    public async Task Create_UnknownMember_Returns400_AndCreatesNothing()
+    {
+        var res = await _client.PostAsJsonAsync(Url,
+            new AppRoleRequest { RoleId = "Auditor", RoleName = "Auditor", PermissionLevel = 80, UserIds = ["alice", "nobody"] });
+
+        Assert.Equal(HttpStatusCode.BadRequest, res.StatusCode);
+        Assert.Equal("使用者 nobody 不存在",
+            (await res.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("message").GetString());
+        Assert.False(await _factory.AppRoles.RoleIdExistsAsync("Auditor"));
+    }
+
+    [Fact]
+    public async Task Update_UnknownMember_Returns400_AndKeepsMembers()
+    {
+        var res = await _client.PutAsJsonAsync(Url,
+            new AppRoleRequest { Pkid = 2, RoleId = "User", RoleName = "User", PermissionLevel = 100, UserIds = ["carol", "nobody"] });
+
+        Assert.Equal(HttpStatusCode.BadRequest, res.StatusCode);
+        var role = await _client.GetFromJsonAsync<AppRole>($"{Url}/2");
+        Assert.Equal(["carol"], role!.Users.Select(u => u.UserId));
+    }
+
+    [Fact]
+    public async Task Create_MemberRepeatedInOtherCaseOrPadded_IsStoredOnce()
+    {
+        var res = await _client.PostAsJsonAsync(Url,
+            new AppRoleRequest { RoleId = "Auditor", RoleName = "Auditor", PermissionLevel = 80, UserIds = ["alice", "ALICE", " alice ", " "] });
+        var created = await res.Content.ReadFromJsonAsync<AppRole>();
+
+        Assert.Equal(HttpStatusCode.Created, res.StatusCode);
+        Assert.Equal(1, created!.UserCount);
+    }
+
     // ---------- Delete ----------
 
     [Fact]

@@ -77,6 +77,18 @@ public class AppRoleRepository(IDbConnectionFactory db, RowAuditWriter audit) : 
             new { roleId });
     }
 
+    public async Task<IReadOnlyList<string>> CheckUsersAsync(IEnumerable<string> userIds)
+    {
+        var ids = userIds.Where(u => !string.IsNullOrWhiteSpace(u)).Distinct().ToList();
+        if (ids.Count == 0) return [];
+
+        using var conn = await db.OpenAsync();
+        var existing = (await conn.QueryAsync<string>(
+            "SELECT UserId FROM AppUser WHERE UserId IN @ids", new { ids })).ToList();
+        // UserId comparison follows the DB's case-insensitive collation.
+        return ids.Where(id => !existing.Contains(id, StringComparer.OrdinalIgnoreCase)).ToList();
+    }
+
     public async Task<int> CreateAsync(AppRoleRequest request)
     {
         using var conn = await db.OpenAsync();
