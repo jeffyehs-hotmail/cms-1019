@@ -1,4 +1,4 @@
-import { Component, HostListener, OnDestroy, OnInit, computed, inject, input, signal, viewChild } from '@angular/core';
+import { ChangeDetectorRef, Component, HostListener, OnDestroy, OnInit, computed, inject, input, signal, viewChild } from '@angular/core';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Router, RouterLink } from '@angular/router';
@@ -9,6 +9,7 @@ import { MessageModule } from 'primeng/message';
 import { TooltipModule } from 'primeng/tooltip';
 import { QrCode } from '../../../core/components/qr-code/qr-code';
 import { toIsoDate } from '../../../core/utils/date.util';
+import { escapeHtml } from '../../../core/utils/html.util';
 import { Course, QrOmitReason, TEXT_FIELDS, courseInUse, courseUrl, qrOmitReason } from '../course.model';
 import { CourseService } from '../course.service';
 import { brochureFooterText, printTitle, toCssString } from '../course-brochure/brochure-print';
@@ -45,6 +46,7 @@ export class CourseDetail implements OnInit, OnDestroy {
   private readonly router = inject(Router);
   private readonly confirmation = inject(ConfirmationService);
   private readonly messages = inject(MessageService);
+  private readonly cdr = inject(ChangeDetectorRef);
 
   /** Route param `:id` (Course.pkid). */
   readonly id = input.required<string>();
@@ -52,7 +54,7 @@ export class CourseDetail implements OnInit, OnDestroy {
   readonly course = signal<Course | null>(null);
   readonly notFound = signal(false);
   readonly textFields = TEXT_FIELDS;
-  /** Local `yyyy-MM-dd`, set once per load and shared by the banner and the brochure (eng F7). */
+  /** Local `yyyy-MM-dd`, set per load and re-read at print; shared by the banner and the brochure (eng F7). */
   readonly today = signal(toIsoDate(new Date()));
 
   // Read only the brochure's input-free signals (qrDrawn, qrFailed): the header binds before the
@@ -109,6 +111,12 @@ export class CourseDetail implements OnInit, OnDestroy {
     this.restorePrint(); // a missed afterprint must not leave stale state
     const c = this.course();
     if (!c) return; // the .print-only block prints its "please wait" line
+    // A tab left open past midnight must print the new date and QR rule (amends eng F7's once-per-load today).
+    const today = toIsoDate(new Date());
+    if (today !== this.today()) {
+      this.today.set(today);
+      this.cdr.detectChanges(); // the print snapshot is taken before coalesced change detection would run
+    }
     this.savedTitle = document.title;
     document.title = printTitle(c.courseId);
     document.documentElement.style.setProperty(FOOTER_VAR, toCssString(brochureFooterText(c.title, this.today())));
@@ -156,7 +164,7 @@ export class CourseDetail implements OnInit, OnDestroy {
     if (this.inUse(c)) return;
     this.confirmation.confirm({
       header: '刪除確認',
-      message: `確定要刪除主代碼 <b>${c.pkid}</b>「${c.courseId} ${c.title}」？`,
+      message: `確定要刪除主代碼 <b>${c.pkid}</b>「${escapeHtml(c.courseId)} ${escapeHtml(c.title)}」？`,
       icon: 'pi pi-exclamation-triangle',
       acceptLabel: '刪除',
       rejectLabel: '取消',

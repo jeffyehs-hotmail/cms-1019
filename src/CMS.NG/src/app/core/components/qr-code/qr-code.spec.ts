@@ -152,6 +152,27 @@ describe('QrCode', () => {
     expect(qr().ready()).toBeTrue();
   });
 
+  it('ignores a stale render that settles after a newer one', async () => {
+    let rejectOld!: (e: unknown) => void;
+    const render = spyOn(TestBed.inject(QrCodeRenderer), 'render').and.returnValue(
+      new Promise<void>((_, reject) => (rejectOld = reject)),
+    );
+    const log = spyOn(console, 'error');
+    await create();
+
+    render.and.resolveTo();
+    host.text.set('https://www.uuu.com.tw/Course/Show/43/AZ900');
+    fixture.detectChanges();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(qr().ready()).toBeTrue();
+
+    rejectOld(new Error('stale'));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(qr().ready()).toBeTrue();
+    expect(qr().failed()).toBeFalse();
+    expect(log).not.toHaveBeenCalled();
+  });
+
   describe('print variant', () => {
     let printFixture: ComponentFixture<PrintHost>;
     const printEl = () => printFixture.nativeElement as HTMLElement;
@@ -175,6 +196,25 @@ describe('QrCode', () => {
       await createPrint();
       expect(printCanvas().width).toBe(300);
       expect(printCanvas().style.width).toBe('100px');
+      expect(printCanvas().getBoundingClientRect().width).toBe(100);
+    });
+
+    it('holds the CSS size at `size` while the draw is pending, so the canvas never overflows its column', () => {
+      spyOn(TestBed.inject(QrCodeRenderer), 'render').and.returnValue(new Promise<void>(() => {}));
+      printFixture = TestBed.createComponent(PrintHost);
+      printFixture.detectChanges();
+
+      expect(printCanvas().getBoundingClientRect().width).toBe(100);
+    });
+
+    it('holds the CSS size even though node-qrcode writes the pixel size inline while drawing', () => {
+      spyOn(TestBed.inject(QrCodeRenderer), 'render').and.callFake((canvas: HTMLCanvasElement) => {
+        canvas.style.width = canvas.style.height = '300px'; // what toCanvas does synchronously
+        return new Promise<void>(() => {}); // the .then that used to shrink it may run after the print snapshot
+      });
+      printFixture = TestBed.createComponent(PrintHost);
+      printFixture.detectChanges();
+
       expect(printCanvas().getBoundingClientRect().width).toBe(100);
     });
 

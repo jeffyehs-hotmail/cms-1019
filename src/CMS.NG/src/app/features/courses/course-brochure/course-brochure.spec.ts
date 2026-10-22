@@ -104,16 +104,35 @@ describe('CourseBrochure', () => {
     expect(b(create(), 'contact')).toContain('www.uuu.com.tw');
   });
 
-  it('omits the QR (and is ready) when the course is not live', () => {
+  it('omits the QR when the course is not live', () => {
     const el = create({ publishStatusIsPublished: false });
     expect(b(el, 'qr')).toBeUndefined();
-    expect(fixture.componentInstance.ready()).toBeTrue();
+    expect(fixture.componentInstance.omitReason()).toBe('unpublished');
   });
 
-  it('is ready once its QR is drawn', async () => {
+  it('treats a failed QR draw like an omitted QR: no cue, URL or canvas in print (design review D6)', async () => {
+    (TestBed.inject(QrCodeRenderer).render as jasmine.Spy).and.rejectWith(new Error('code length overflow'));
+    spyOn(console, 'error');
+    const el = create();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.qrFailed()).toBeTrue();
+    const qr = el.querySelector<HTMLElement>('[data-b="qr"]')!;
+    expect(qr).not.toBeNull(); // the QrCode instance stays alive (eng re-run V1)
+    expect(getComputedStyle(qr).display).toBe('none');
+    expect(getComputedStyle(el.querySelector('.title-block')!).gridTemplateColumns.split(' ').length).toBe(1);
+  });
+
+  it('gives the title the full header width when the QR is omitted', () => {
+    const el = create({ publishStatusIsPublished: false });
+    const columns = getComputedStyle(el.querySelector('.title-block')!).gridTemplateColumns.split(' ');
+    expect(columns.length).toBe(1);
+  });
+
+  it('reports qrDrawn once its QR is drawn', async () => {
     create();
     await fixture.whenStable();
-    expect(fixture.componentInstance.ready()).toBeTrue();
     expect(fixture.componentInstance.qrDrawn()).toBeTrue();
   });
 

@@ -38,6 +38,10 @@
   gap: 6mm;
   align-items: start;
   break-inside: avoid;
+
+  &.no-qr {
+    grid-template-columns: 1fr;
+  }
 }
 
 .company {
@@ -59,6 +63,10 @@
 
 .qr {
   text-align: center;
+
+  &.failed {
+    display: none;
+  }
 }
 
 .qr-cue,

@@ -225,6 +225,60 @@ describe('CourseDetail', () => {
       expect(console.warn).toHaveBeenCalled();
     });
 
+    it('restores the title and footer when the page is left mid-print', async () => {
+      spyOn(TestBed.inject(QrCodeRenderer), 'render').and.resolveTo();
+      create();
+      await flush();
+      document.title = 'CMS';
+
+      window.dispatchEvent(new Event('beforeprint'));
+      fixture.destroy();
+
+      expect(document.title).toBe('CMS');
+      expect(document.documentElement.style.getPropertyValue('--brochure-footer')).toBe('');
+    });
+
+    it('does not warn after printing a ready brochure', async () => {
+      spyOn(TestBed.inject(QrCodeRenderer), 'render').and.resolveTo();
+      const toast = spyOn(TestBed.inject(MessageService), 'add');
+      create();
+      await flush();
+
+      window.dispatchEvent(new Event('beforeprint'));
+      window.dispatchEvent(new Event('afterprint'));
+
+      expect(toast).not.toHaveBeenCalled();
+    });
+
+    it('Ctrl+P before the course loads leaves the title and footer alone', () => {
+      service.getById.and.returnValue(NEVER);
+      const toast = spyOn(TestBed.inject(MessageService), 'add');
+      create();
+      document.title = 'CMS';
+
+      window.dispatchEvent(new Event('beforeprint'));
+      expect(document.title).toBe('CMS');
+      expect(document.documentElement.style.getPropertyValue('--brochure-footer')).toBe('');
+
+      window.dispatchEvent(new Event('afterprint'));
+      expect(toast).not.toHaveBeenCalled();
+    });
+
+    it('beforeprint re-reads today, so a tab left open overnight prints the new date and QR rule', async () => {
+      spyOn(TestBed.inject(QrCodeRenderer), 'render').and.resolveTo();
+      service.getById.and.returnValue(of({ ...course, scheduleOff: '2026-10-21' })); // last live day
+      const el = create();
+      await flush();
+      expect(el.querySelector('.print-only [data-b="qr"]')).not.toBeNull();
+
+      jasmine.clock().mockDate(new Date(2026, 9, 22));
+      window.dispatchEvent(new Event('beforeprint')); // no test-driven detectChanges: print snapshots right after
+
+      expect(document.documentElement.style.getPropertyValue('--brochure-footer')).toContain('2026/10/22');
+      expect(el.querySelector('.print-only [data-b="qr"]')).toBeNull();
+      expect(banner()).toBe('列印PDF 將不含 QR Code：此課程已下架。如需 QR Code，請調整上架／下架日期');
+    });
+
     it('stops listening once the page is destroyed', () => {
       spyOn(TestBed.inject(QrCodeRenderer), 'render').and.resolveTo();
       create();
@@ -275,6 +329,13 @@ describe('CourseDetail', () => {
       const wrapper = el.querySelector('[data-print]')!.parentElement!;
       const tooltip = fixture.debugElement.query((d) => d.nativeElement === wrapper).injector.get(Tooltip);
       expect(tooltip.content).toBe('在列印視窗的「目的地」選擇「另存為 PDF」');
+      // keyboard users get the hint too: PrimeNG opens it when the inner button takes focus; no extra tab stop
+      expect(wrapper.hasAttribute('tabindex')).toBeFalse();
+      printButton().dispatchEvent(new Event('focus'));
+      jasmine.clock().tick(1);
+      expect(document.body.querySelector('.p-tooltip')?.textContent).toContain('另存為 PDF');
+      printButton().dispatchEvent(new Event('blur'));
+      jasmine.clock().tick(1000);
     });
 
     it('banner and brochure apply the same today (eng F7)', () => {

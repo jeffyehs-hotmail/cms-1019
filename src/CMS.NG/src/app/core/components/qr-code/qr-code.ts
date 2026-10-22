@@ -8,9 +8,14 @@ export type QrCodeVariant = 'screen' | 'print';
 /** Canvas pixel density of the print variant; CSS size stays `size`. */
 const PRINT_SCALE = 3;
 
+function setCssSize(canvas: HTMLCanvasElement, size: number): void {
+  canvas.style.width = `${size}px`;
+  canvas.style.height = `${size}px`;
+}
+
 /**
- * QR code for a URL with a caption and a PNG download button.
- * Re-renders whenever `text` changes; the download is named `{filename}.png`.
+ * QR code for a URL. The `screen` variant adds a caption and a PNG download button named `{filename}.png`;
+ * the `print` variant is the bare code. Re-renders whenever `text`, `size` or `variant` changes.
  */
 @Component({
   selector: 'app-qr-code',
@@ -94,15 +99,15 @@ export class QrCode {
       const run = ++this.renderRun;
       this.ready.set(false);
       this.failed.set(false);
-      this.renderer
-        .render(canvas, text, print ? size * PRINT_SCALE : size)
+      const drawn = this.renderer.render(canvas, text, print ? size * PRINT_SCALE : size);
+      // Hold the print canvas at `size` right away: an undrawn canvas is 300×150, and node-qrcode writes the
+      // pixel size inline synchronously; a print taken before the .then below must not see either.
+      if (print) setCssSize(canvas, size);
+      drawn
         .then(() => {
           if (run !== this.renderRun) return;
-          if (print) {
-            // node-qrcode writes an inline width/height equal to the pixel size; shrink it back to `size`.
-            canvas.style.width = `${size}px`;
-            canvas.style.height = `${size}px`;
-          }
+          // node-qrcode writes an inline width/height equal to the pixel size; shrink it back to `size`.
+          if (print) setCssSize(canvas, size);
           this.ready.set(true);
         })
         .catch((err: unknown) => {

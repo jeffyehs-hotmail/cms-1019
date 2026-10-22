@@ -1,6 +1,6 @@
 @let c = course();
 <article class="brochure">
-  <header class="title-block">
+  <header class="title-block" [class.no-qr]="omitReason() !== null || qrFailed()">
     <div class="titles">
       <div class="company" data-b="company">{{ company }}</div>
       <h1 class="title" data-b="title">{{ c.title }}</h1>
@@ -9,7 +9,8 @@
       }
     </div>
     @if (omitReason() === null) {
-      <div class="qr" data-b="qr">
+      <!-- A failed draw prints like an omitted QR (design review D6); hidden, not removed, so the QrCode lives on (V1). -->
+      <div class="qr" data-b="qr" [class.failed]="qrFailed()">
         <app-qr-code [text]="url()" [title]="c.courseId" [size]="qrSize" variant="print" />
         <div class="qr-cue">掃描查看課程詳情</div>
         <div class="qr-url" data-b="url">{{ displayUrl() }}</div>

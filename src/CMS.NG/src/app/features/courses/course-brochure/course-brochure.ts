@@ -35,12 +35,10 @@ export class CourseBrochure {
   /** Latched once the QR fails; the QR's `@if` reads omitReason only, never this (eng re-run V1). */
   readonly qrFailed = signal(false);
   /**
-   * True once the QR is on the canvas. Unlike `ready`, it reads no input, so a parent can query it
+   * True once the QR is on the canvas. Unlike `omitReason`, it reads no input, so a parent can query it
    * during its first change-detection pass, before this component's inputs are bound.
    */
   readonly qrDrawn = computed(() => !!this.qr()?.ready());
-  /** True when printing now would produce the final brochure: QR drawn, omitted, or failed. */
-  readonly ready = computed(() => this.omitReason() !== null || this.qrFailed() || this.qrDrawn());
 
   readonly url = computed(() => courseUrl(this.course()));
   /** URL caption without the scheme (autoplan design H3). */

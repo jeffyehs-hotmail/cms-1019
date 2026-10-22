@@ -3,8 +3,9 @@
   <div class="actions">
     <p-button label="返回" icon="pi pi-arrow-left" severity="secondary" (onClick)="back()" />
     @if (course(); as c) {
-      <!-- Disabled buttons get no hover events, so the tooltip sits on a wrapper (same as 刪除). -->
-      <span pTooltip="在列印視窗的「目的地」選擇「另存為 PDF」" tooltipPosition="bottom">
+      <!-- Disabled buttons get no hover events, so the tooltip sits on a wrapper (same as 刪除).
+           tooltipEvent="both": PrimeNG also opens it when the inner button takes keyboard focus. -->
+      <span pTooltip="在列印視窗的「目的地」選擇「另存為 PDF」" tooltipPosition="bottom" tooltipEvent="both">
         <p-button
           label="列印PDF"
           icon="pi pi-print"
