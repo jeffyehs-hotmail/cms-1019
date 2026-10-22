@@ -15,6 +15,8 @@ Read this before running or smoke-testing the apps, querying the DB, or looking 
 | `src/CMS.sln`, `src/global.json` | Solution; `global.json` pins the .NET 9 SDK (machine default is 10) |
 | `src/CMS.API`, `src/CMS.API.Tests`, `src/CMS.NG` | Web API, xUnit tests, Angular app |
 | `docs/claude/*.md` | These reference docs; `CLAUDE.md` is only the index |
+| `tools/token-report/` | Claude Code SessionEnd hook (Node, no deps) that reports token usage to the API; install and behaviour in its `README.md` |
+| `docs/agents/` | Issue tracker, triage labels and domain-doc conventions for the engineering skills |
 
 ## Running
 

@@ -46,7 +46,7 @@ No table exists yet. This feature adds the DDL.
   1. Write `~/.claude/token-report/outbox/<sessionId>.json`.
   2. POST every file in the outbox.
   3. On 2xx, delete the file.
-  4. On 4xx, move it to `failed/` and don't retry.
+  4. On 4xx, move it to `failed/` and don't retry. **(built)** 404 (API not yet restarted with the endpoint), 408 and 429 are retried like 5xx. `--retry-failed` moves `failed/` reports back to the outbox; queuing a newer report deletes the session's failed copy, and `--retry-failed` drops a failed copy whose session is already queued, so an older report never overwrites newer totals.
   5. On network failure or 5xx, keep it for the next session end.
 - `--backfill` mode: report every transcript still in `~/.claude/projects` (about 30 days are kept by default). It is safe to run again because the server replaces each session's rows.
 - A resumed session keeps the same session id and appends to the same transcript. Re-parsing the whole file and replacing the rows handles that.
@@ -77,8 +77,8 @@ The payload has no `userId`. The server takes the user from the token.
 - Validation → 400 `{ message }` (Traditional Chinese):
   - sessionId is required and at most 100 characters;
   - between 1 and 500 rows;
-  - no token count is negative;
-  - a row's four token columns are not all zero;
+  - no token count is negative; **(built)** each token count is at most 1e12 (`MaxTokens`, so `Cost` decimal(18,6) and the report sums cannot overflow);
+  - a row's five token columns are not all zero;
   - usageDate is at most 1 day after today and at most 400 days before today, in Taipei time;
   - model and project are not empty and fit their column lengths;
   - (sessionId, usageDate, model) is not repeated within the payload.
@@ -95,7 +95,7 @@ The payload has no `userId`. The server takes the user from the token.
 - Body: `from`, `to` (DateOnly; default = current Taipei month; from > to → 400), and `userIds[]`, `projects[]`, `models[]`.
 - Returns rows grouped by (UsageDate, UserId, UserName, Project, Model), with sums of the five token columns and of Cost. A group with any NULL cost is flagged `hasUnpricedRows`.
 - Filter options **(built)**: users from `GET api/lookups/app-users`; distinct projects and models from `GET api/agent-token-usages/filter-options`.
-- **Unauthenticated**, like the rest of the API, until JWT validation exists. Record this as deferred work in features.md.
+- ~~Unauthenticated, like the rest of the API, until JWT validation exists.~~ **(built: requires a login JWT with the Admin role; `query` and `filter-options` return 403 `{ message }` to other signed-in users, like the rest of the 系統管理 menu.)**
 
 ### AppUser agent token actions
 
@@ -192,4 +192,4 @@ ALTER TABLE AppUser ADD AgentTokenHash nvarchar(64) NULL;
 
 ## Docs
 
-Add notes to `docs/claude/features.md` (decisions above, plus deferred work: auth on the GET report, an OpenTelemetry alternative, a price CRUD screen). Add a row to the CLAUDE.md Features table.
+Add notes to `docs/claude/features.md` (decisions above, plus deferred work: auth on the GET report, an OpenTelemetry alternative, a price CRUD screen). Add a row to the CLAUDE.md Features table. **(built: report auth is no longer deferred, it needs an Admin login JWT; CLAUDE.md has no Features table, the feature is named in its `features.md` row.)**
