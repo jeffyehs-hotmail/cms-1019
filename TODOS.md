@@ -375,6 +375,6 @@ Follow-ups found by /ship's pre-landing review of `feature-agent-token-usage` (2
 
 ## Completed
 
-- **Hook: --retry-failed can overwrite newer session totals**: `requeueFailed` drops a failed copy when `outbox/` already holds a newer one; tests for that and for an unparseable outbox file. **Completed:** /ship run 4 (2026-10-22)
+- **Hook: --retry-failed can overwrite newer session totals**: `enqueue` deletes the session's failed copy and `requeueFailed` drops one whose session is already queued (CLI prints the dropped count); tests for both and for an unparseable outbox file. **Completed:** /ship run 4 (2026-10-22)
 - **Audit attribution used the editable display name**: RowAudit.UserName now records the login UserId (JWT `sub`). **Completed:** /ship run 4 (2026-10-22)
 - **PublishStatus history readable by non-admins**: added to `RowAuditController.AdminOnlyTables`; the publish-status load toasts and the AppRole form now show the API message. **Completed:** /ship run 4 (2026-10-22)

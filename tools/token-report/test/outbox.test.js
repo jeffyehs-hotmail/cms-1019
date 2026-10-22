@@ -81,18 +81,32 @@ test('flush without an outbox is a no-op; requeueFailed moves failed reports bac
 
   enqueue(home, report('bad'));
   await flush(home, async () => ({ status: 401 }));
-  assert.equal(requeueFailed(home), 1);
+  assert.deepEqual(requeueFailed(home), { moved: 1, dropped: 0 });
   assert.deepEqual(list(path.join(home, 'outbox')), ['bad.json']);
   assert.deepEqual(list(path.join(home, 'failed')), []);
 });
 
-test('requeueFailed keeps a newer outbox copy of the same session and drops the failed one', async () => {
+test('enqueue drops an older failed copy, so --retry-failed never resends it after the newer one was sent', async () => {
   const home = tempHome();
   enqueue(home, { ...report('s'), project: 'old' });
   await flush(home, async () => ({ status: 401 }));
-  enqueue(home, { ...report('s'), project: 'new' });
+  assert.deepEqual(list(path.join(home, 'failed')), ['s.json']);
 
-  assert.equal(requeueFailed(home), 0);
+  enqueue(home, { ...report('s'), project: 'new' });
+  assert.deepEqual(list(path.join(home, 'failed')), []);
+  await flush(home, async () => ({ status: 204 }));
+
+  assert.deepEqual(requeueFailed(home), { moved: 0, dropped: 0 });
+  assert.deepEqual(list(path.join(home, 'outbox')), []);
+});
+
+test('requeueFailed keeps a newer outbox copy of the same session and drops the failed one', async () => {
+  const home = tempHome();
+  enqueue(home, { ...report('s'), project: 'new' });
+  fs.mkdirSync(path.join(home, 'failed'), { recursive: true });
+  fs.writeFileSync(path.join(home, 'failed', 's.json'), JSON.stringify({ ...report('s'), project: 'old' }), 'utf8');
+
+  assert.deepEqual(requeueFailed(home), { moved: 0, dropped: 1 });
   assert.deepEqual(list(path.join(home, 'outbox')), ['s.json']);
   assert.deepEqual(list(path.join(home, 'failed')), []);
   assert.equal(JSON.parse(fs.readFileSync(path.join(home, 'outbox', 's.json'), 'utf8')).project, 'new');

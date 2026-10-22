@@ -14,12 +14,17 @@ function fileName(sessionId) {
   return `${sessionId.replace(/[^A-Za-z0-9._-]/g, '_')}.json`;
 }
 
-/** Writes (or overwrites) the session's report in the outbox. */
+/**
+ * Writes (or overwrites) the session's report in the outbox and drops an older failed/ copy of it:
+ * the server replaces a session's rows, so resending that older report later would overwrite newer totals.
+ */
 function enqueue(home, report) {
-  const { outbox } = dirs(home);
+  const { outbox, failed } = dirs(home);
   fs.mkdirSync(outbox, { recursive: true });
-  const file = path.join(outbox, fileName(report.sessionId));
+  const name = fileName(report.sessionId);
+  const file = path.join(outbox, name);
   fs.writeFileSync(file, JSON.stringify(report), 'utf8');
+  fs.rmSync(path.join(failed, name), { force: true });
   return file;
 }
 
@@ -83,9 +88,9 @@ function moveTo(dir, file) {
 }
 
 /**
- * Moves failed/ reports back to the outbox (after fixing the token or config) and returns how many moved.
- * An outbox copy of the same session is a later enqueue, so it wins and the failed copy is dropped:
- * the server replaces a session's rows, and the older report would overwrite the newer totals.
+ * Moves failed/ reports back to the outbox (after fixing the token or config): `{ moved, dropped }`.
+ * An outbox copy of the same session is a later enqueue, so it wins and the failed copy is dropped
+ * (normally `enqueue` already removed it): the older report would overwrite the newer totals.
  */
 function requeueFailed(home) {
   const { outbox, failed } = dirs(home);
@@ -93,19 +98,20 @@ function requeueFailed(home) {
   try {
     files = fs.readdirSync(failed).filter((f) => f.endsWith('.json'));
   } catch {
-    return 0;
+    return { moved: 0, dropped: 0 };
   }
   fs.mkdirSync(outbox, { recursive: true });
-  let moved = 0;
+  const result = { moved: 0, dropped: 0 };
   for (const f of files) {
     if (fs.existsSync(path.join(outbox, f))) {
       fs.rmSync(path.join(failed, f), { force: true });
+      result.dropped += 1;
       continue;
     }
     fs.renameSync(path.join(failed, f), path.join(outbox, f));
-    moved += 1;
+    result.moved += 1;
   }
-  return moved;
+  return result;
 }
 
 module.exports = { enqueue, flush, outcomeOf, requeueFailed, fileName };

@@ -50,7 +50,7 @@ It runs in plain Node (18 or later) and has no dependencies.
    |---|---|
    | 2xx | File deleted |
    | 404 (API not updated yet), 408, 429, 5xx, offline | File kept; retried at the next session end |
-   | Other 4xx | File moved to `failed/`. After fixing the token or config, run `node report.js --retry-failed` (a failed report whose session already has a newer copy queued is dropped, so old totals never overwrite new ones) |
+   | Other 4xx | File moved to `failed/`. After fixing the token or config, run `node report.js --retry-failed` (queuing a newer report for a session deletes its failed copy, and `--retry-failed` drops a failed copy whose session is already queued, so old totals never overwrite new ones) |
 
 4. **Server.** The server replaces all rows of a session on every report, so resending (resume, retry, backfill) never double-counts. The user is taken from the token, and cost is calculated on the server from `AgentModelPrice`.
 5. **Errors.** The script always exits 0. Problems are printed to stderr and never block Claude Code.

@@ -134,7 +134,8 @@ async function main(argv) {
   const home = path.join(claudeDir(), 'token-report');
   if (argv.includes('--backfill')) return backfill(home);
   if (argv.includes('--retry-failed')) {
-    console.log(`token-report: requeued ${requeueFailed(home)} reports`);
+    const { moved, dropped } = requeueFailed(home);
+    console.log(`token-report: requeued ${moved} reports${dropped ? `, dropped ${dropped} superseded by a newer queued copy` : ''}`);
     return send(home, Infinity);
   }
   return hook(home);
