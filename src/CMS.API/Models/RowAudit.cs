@@ -8,7 +8,10 @@ public class RowAudit
     public string PrimaryKeyValues { get; set; } = string.Empty;
     /// <summary>"Insert" | "Update" | "Delete".</summary>
     public string ActionType { get; set; } = string.Empty;
-    /// <summary>Insert/Delete: first string property's value; Update: changed property names, comma-separated.</summary>
+    /// <summary>
+    /// Insert/Delete: first string column's value; Update: changed column names, comma-separated,
+    /// then any n-n member change ("UserIds +bob -carol").
+    /// </summary>
     public string? ActionDesc { get; set; }
     public DateTime DateTime { get; set; }
 }

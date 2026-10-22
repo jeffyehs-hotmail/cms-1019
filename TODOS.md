@@ -28,6 +28,30 @@ Follow-ups found by /ship's pre-landing review of `feature-agent-token-usage` (2
 **Priority:** P1
 **Depends on:** None
 
+### Default-password accounts
+
+**What:** Reject a change-password whose new password equals the current one or `appConfig.defaultPassword`; when `PasswordUpdatedTime` is NULL, issue a restricted token (or a `mustChangePassword` flag) that only allows change-password and route the user to /profile.
+
+**Why:** New and reset accounts share one default password, login never forces a change, and "changing" to the same value clears the 尚未變更（預設密碼） indicator; anyone who knows the default can sign in as a fresh or just-reset user, including an Admin.
+
+**Context:** `AuthController.Login/ChangePassword`, `authGuard`. Related: rate limiting below. Red-team finding, /ship run 4.
+
+**Effort:** M
+**Priority:** P2
+**Depends on:** None
+
+### Concurrent AppUserRole edits from two forms
+
+**What:** Send the originally loaded member/role list (or a rowversion) with AppRole and AppUser saves and return 409 when the current membership differs, or apply add/remove deltas instead of delete-then-reinsert.
+
+**Why:** Membership is editable from both the AppRole form (UserIds) and the AppUser form (RoleIds); saving a stale form silently undoes grants made meanwhile (the audit row records it, nobody is warned).
+
+**Context:** `AppRoleRepository.UpdateAsync`, `AppUserRepository.UpdateAsync`.
+
+**Effort:** M
+**Priority:** P3
+**Depends on:** None
+
 ### Rate-limit login and change-password
 
 **What:** Add `AddRateLimiter` policies: per UserId/IP on `POST /api/auth/login`, per `sub` on `POST /api/auth/change-password`, with a delay or lockout after N failures.
@@ -139,16 +163,40 @@ Follow-ups found by /ship's pre-landing review of `feature-agent-token-usage` (2
 **Depends on:** None
 
 
-### Hook: --retry-failed can overwrite newer session totals
+### Hook: outbox send-order and deadline tests
 
-**What:** In `lib/outbox.js`, delete `failed/<session>.json` when a newer report for the same session is enqueued, and skip (delete) a failed file in `requeueFailed` when `outbox/` already has that name.
+**What:** Test that `flush` sends oldest first (the current test sorts `seen`) and that an unparseable file left past the deadline stays in `outbox/`.
 
-**Why:** A session rejected once and later sent successfully keeps its old copy in `failed/`; `--retry-failed` resends it, and since the server replaces a session's rows, the older smaller totals overwrite the newer ones.
+**Why:** Order decides which report wins when two copies of a session race; neither path is pinned by a test.
 
-**Context:** Also add tests for an unparseable outbox file (parked in `failed/`, never posted; kept in `outbox/` past the deadline) and for oldest-first send order (the current test sorts `seen`).
+**Context:** `tools/token-report/lib/outbox.js`, `test/outbox.test.js`. The requeue overwrite and the unparseable-file test were fixed in /ship run 4.
 
 **Effort:** S
-**Priority:** P1
+**Priority:** P3
+**Depends on:** None
+
+### Hook: stop retrying a report that always fails with 5xx
+
+**What:** Count attempts per outbox file (sidecar or file name) and park it in `failed/` after N consecutive 5xx; on the server, skip null rows in `Normalize` and answer 400 for duplicate-key collisions instead of 500.
+
+**Why:** A report that deterministically triggers a 500 is re-POSTed at every SessionEnd forever, sent first (oldest), and eats the 25 s hook budget so newer reports wait.
+
+**Context:** `outbox.js` `outcomeOf`/`flush`, `AgentTokenUsagesController.Normalize`. Red-team finding, /ship run 4.
+
+**Effort:** S
+**Priority:** P3
+**Depends on:** None
+
+### Hook: verify forked/resumed transcripts are not double-counted
+
+**What:** Check whether Claude Code copies earlier assistant lines (same `message.id`) into a new session transcript on resume/fork; if so, count only lines whose `sessionId` equals the reported session, or dedupe by message id on the server.
+
+**Why:** Dedupe is per session and the server replaces per SessionId, so copied history would be summed twice under two sessions.
+
+**Context:** `tools/token-report/lib/parse.js` (dedupe key). Unverified: depends on Claude Code transcript behaviour. Also cut `sessionName` by code point so a 200-unit cut never leaves a lone surrogate, and memoize `resolveProject` by cwd during `--backfill` (one or two git spawns per transcript today).
+
+**Effort:** S
+**Priority:** P4
 **Depends on:** None
 
 ### Hook: concurrent SessionEnd flushes race on the outbox
@@ -213,7 +261,7 @@ Follow-ups found by /ship's pre-landing review of `feature-agent-token-usage` (2
 
 ### Report performance
 
-**What:** Cap the report's date span (e.g. 400 days) and/or row count; add paging or virtual scroll; make `IX_AgentTokenUsage_Date_User` covering (INCLUDE the selected columns); limit `filter-options` to a recent window or index Project/Model.
+**What:** Cap the report's date span (e.g. 400 days) and/or row count; add paging or virtual scroll; make `IX_AgentTokenUsage_Date_User` covering (INCLUDE the selected columns); limit `filter-options` to a recent window or index Project/Model; index `AgentTokenUsage(UserId)` (the AppUser list counts usage per user with a correlated COUNT); cache the JWT signing key read from SysConfig for 30–60 s instead of one query per request.
 
 **Why:** The report is unpaged and unbounded, the index forces key lookups, and filter options scan the whole table twice per page open; all grow with usage.
 
@@ -263,6 +311,18 @@ Follow-ups found by /ship's pre-landing review of `feature-agent-token-usage` (2
 **Priority:** P3
 **Depends on:** None
 
+### Non-admin positive routes and hook CLI contract tests
+
+**What:** An `AuthorizationTests` theory that sends a User-only token to every route meant to stay open (lookups, courses, partners, course groups, featured promo items, RowAudit for Course) and expects 200; `node --test` cases that spawn `report.js` with empty/invalid stdin (exit 0, stderr message), with no config (report stays queued), and for `poster` non-2xx/timeout mapping.
+
+**Why:** Every positive API test uses the default Admin token, so an `[Authorize(Roles=Admin)]` that spread to a content controller would pass every test; the hook's "never fails the session" contract is untested.
+
+**Context:** `CmsApiFactory.AccessToken("carol", "Carol", ["User"])`, `tools/token-report/report.js`.
+
+**Effort:** S
+**Priority:** P2
+**Depends on:** None
+
 ### Error-callback 5xx spec cases
 
 **What:** Add a 500 case (no component toast) for every `error:` callback guarded by `!isServerError`, preferably table-driven per spec; plus the missing cases below.
@@ -273,6 +333,18 @@ Follow-ups found by /ship's pre-landing review of `feature-agent-token-usage` (2
 
 **Effort:** M
 **Priority:** P2
+**Depends on:** None
+
+### Sidebar and surface polish
+
+**What:** Sidebar: animate a transform (or drop the `width` transition, honoring `prefers-reduced-motion`), add `:focus-visible`/hover styles to `.collapse-btn`, `.nav-group` and `.nav-items a`, collapse to the 56px rail below ~768px, and tell group toggles from links when collapsed. Share one chip-list class (`.role-chips` ×2 and `.user-chips`), give the report's `.table-card` the `.page-card` radius, and derive the report's colspans from computed signals.
+
+**Why:** Keyboard focus is hard to see on the dark sidebar, tables get squeezed on narrow screens, and copied styles drift.
+
+**Context:** `app.scss`, `profile.ts`, `app-user-detail.ts`, `styles.scss`, `agent-token-usage-report.*`. Design reviewer, /ship run 4.
+
+**Effort:** S
+**Priority:** P4
 **Depends on:** None
 
 ### UX and copy nits
@@ -291,7 +363,7 @@ Follow-ups found by /ship's pre-landing review of `feature-agent-token-usage` (2
 
 ### Simplification advisories
 
-**What:** Replace `serverErrorMessage` with `errorMessage(err, SERVER_ERROR_MESSAGE)`; bind 登出 to `auth.logout()` and drop the wrapper; use `Base64Url.EncodeToString` in `AgentTokenHasher`; share one `fetch` in the row-audit badge; share a `jsonLines` generator in `tools/token-report/lib/parse.js`; one Taipei-time helper instead of four `TimeSpan.FromHours(8)` copies; build `PasswordPolicy.Message` from `MinLength`; rename or delete `.claude/setting.json` (Claude Code reads `settings.json`).
+**What:** Replace `serverErrorMessage` with `errorMessage(err, SERVER_ERROR_MESSAGE)`; bind 登出 to `auth.logout()` and drop the wrapper; use `Base64Url.EncodeToString` in `AgentTokenHasher`; share one `fetch` in the row-audit badge; share a `jsonLines` generator in `tools/token-report/lib/parse.js`; one Taipei-time helper instead of four `TimeSpan.FromHours(8)` copies; build `PasswordPolicy.Message` from `MinLength`; rename or delete `.claude/setting.json` (Claude Code reads `settings.json`). From /ship run 4: make `RowAuditWriter.Log*Async` take `AuditRow` and a required `tx` (drop the reflection path and the own-connection insert), move `AuthRepository.UpdateAuditedAsync` (plus a delete twin) onto the writer, keep audited table names in one constants class used by the repositories and `RowAuditController.AuditedTables`, name the ingest usageDate window (+1/−400 days), and read hook stdin with `fs.readFileSync(0)` if that is reliable on Windows pipes.
 
 **Why:** About 30 lines removable and fewer places to keep in sync.
 
@@ -302,3 +374,7 @@ Follow-ups found by /ship's pre-landing review of `feature-agent-token-usage` (2
 **Depends on:** None
 
 ## Completed
+
+- **Hook: --retry-failed can overwrite newer session totals**: `requeueFailed` drops a failed copy when `outbox/` already holds a newer one; tests for that and for an unparseable outbox file. **Completed:** /ship run 4 (2026-10-22)
+- **Audit attribution used the editable display name**: RowAudit.UserName now records the login UserId (JWT `sub`). **Completed:** /ship run 4 (2026-10-22)
+- **PublishStatus history readable by non-admins**: added to `RowAuditController.AdminOnlyTables`; the publish-status load toasts and the AppRole form now show the API message. **Completed:** /ship run 4 (2026-10-22)
