@@ -54,7 +54,7 @@ Follow-ups found by /ship's pre-landing review of `feature-agent-token-usage` (2
 
 ### Store the canonical RoleId
 
-**What:** In `AppUserRepository.InsertRolesAsync` / `AppRoleRepository` membership writes, store the `AppRole.RoleId` spelling returned by the existence check, not the caller's.
+**What:** In `AppUserRepository.InsertRolesAsync`, store the `AppRole.RoleId` spelling returned by the existence check, not the caller's (or join `AppRole` in `AuthRepository.GetRoleIdsAsync` so tokens carry the canonical id). `AppRoleRepository` already writes its own canonical RoleId.
 
 **Why:** The DB accepts "admin" for "Admin" (case-insensitive), but login copies the stored spelling into the JWT and `[Authorize(Roles = "Admin")]` / `roles().includes('Admin')` compare exactly: the user looks like an Admin everywhere and gets no Admin rights.
 
@@ -327,11 +327,11 @@ Follow-ups found by /ship's pre-landing review of `feature-agent-token-usage` (2
 
 ### Audit Course link changes
 
-**What:** Pass `RowAuditWriter.MemberChange` for `CourseInCertification`, `CourseJobCategories` and `CourseRecomm` in `CourseRepository.UpdateAsync`, as AppUser/AppRole do for roles, or list Course links as an exception in backend.md.
+**What:** Pass `RowAuditWriter.MemberChange` for `CourseInCertification` and `CourseJobCategories` in `CourseRepository.UpdateAsync`, as AppUser/AppRole do for roles, or list Course links as an exception in backend.md.
 
 **Why:** An edit that only changes a course's links is logged with `ActionDesc = ""`, so the history can't say what changed.
 
-**Context:** `CourseRepository.cs` (delete-then-reinsert of the link tables). Adversarial review, /ship run 4.
+**Context:** `CourseRepository.cs` (delete-then-reinsert of those two link tables; `CourseRecomm` is only re-keyed on a CourseId change, which ActionDesc already shows). Adversarial review, /ship run 4.
 
 **Effort:** S
 **Priority:** P3
