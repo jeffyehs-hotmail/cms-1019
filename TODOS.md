@@ -52,11 +52,25 @@ Follow-ups found by /ship's pre-landing review of `feature-agent-token-usage` (2
 **Priority:** P3
 **Depends on:** None
 
+### Store the canonical RoleId
+
+**What:** In `AppUserRepository.InsertRolesAsync` / `AppRoleRepository` membership writes, store the `AppRole.RoleId` spelling returned by the existence check, not the caller's.
+
+**Why:** The DB accepts "admin" for "Admin" (case-insensitive), but login copies the stored spelling into the JWT and `[Authorize(Roles = "Admin")]` / `roles().includes('Admin')` compare exactly: the user looks like an Admin everywhere and gets no Admin rights.
+
+**Context:** `CheckRolesAsync` already queries the canonical ids. Adversarial review, /ship run 4.
+
+**Effort:** S
+**Priority:** P3
+**Depends on:** None
+
 ### Rate-limit login and change-password
 
 **What:** Add `AddRateLimiter` policies: per UserId/IP on `POST /api/auth/login`, per `sub` on `POST /api/auth/change-password`, with a delay or lockout after N failures.
 
 **Why:** Change-password is an unlimited online oracle for the current password (distinct 400 `目前密碼錯誤`, fast unsalted SHA-256); a stolen 24 h token can brute-force the real password.
+
+**Account ids are visible to insiders:** since /ship run 4, RowAudit history records the login UserId, so any signed-in user can list the ids that edited non-admin tables (Course, Partner, …). That makes throttling login more urgent.
 
 **Context:** `AuthController.Login`, `AuthController.ChangePassword`. Password hashing is unsalted SHA-256 to match existing rows (`Security/PasswordHasher`).
 
@@ -187,13 +201,25 @@ Follow-ups found by /ship's pre-landing review of `feature-agent-token-usage` (2
 **Priority:** P3
 **Depends on:** None
 
+### Hook: a session name cut mid-emoji is rejected forever
+
+**What:** In `lib/parse.js`, drop a trailing high surrogate after `.slice(0, MAX_SESSION_NAME)` (or slice by code point while staying ≤ 200 UTF-16 units); add a test with `'x'.repeat(199) + emoji`.
+
+**Why:** A lone surrogate is serialized as `"\ud83d"`, System.Text.Json rejects it, the API answers 400, and the outbox parks the report in `failed/`: that session's usage is never recorded, and `--retry-failed` fails the same way.
+
+**Context:** `tools/token-report/lib/parse.js` (sessionName). Adversarial review, /ship run 4.
+
+**Effort:** S
+**Priority:** P2
+**Depends on:** None
+
 ### Hook: verify forked/resumed transcripts are not double-counted
 
 **What:** Check whether Claude Code copies earlier assistant lines (same `message.id`) into a new session transcript on resume/fork; if so, count only lines whose `sessionId` equals the reported session, or dedupe by message id on the server.
 
 **Why:** Dedupe is per session and the server replaces per SessionId, so copied history would be summed twice under two sessions.
 
-**Context:** `tools/token-report/lib/parse.js` (dedupe key). Unverified: depends on Claude Code transcript behaviour. Also cut `sessionName` by code point so a 200-unit cut never leaves a lone surrogate, and memoize `resolveProject` by cwd during `--backfill` (one or two git spawns per transcript today).
+**Context:** `tools/token-report/lib/parse.js` (dedupe key). Unverified: depends on Claude Code transcript behaviour. Also memoize `resolveProject` by cwd during `--backfill` (one or two git spawns per transcript today).
 
 **Effort:** S
 **Priority:** P4
@@ -201,13 +227,13 @@ Follow-ups found by /ship's pre-landing review of `feature-agent-token-usage` (2
 
 ### Hook: concurrent SessionEnd flushes race on the outbox
 
-**What:** Write reports to `<file>.tmp` then rename; wrap per-file stat/rename/rm in try/catch and skip vanished files; optionally take an exclusive lock file around `flush`.
+**What:** Write reports to `<file>.tmp` then rename; wrap per-file stat/rename/rm in try/catch and skip vanished files; take an exclusive lock file around `enqueue`, `flush` and `requeueFailed` (required, not optional), or re-check before `rm`/`moveTo` that the file still holds the content that was sent; guard `enqueue`'s delete of the failed copy (EPERM/EBUSY on Windows) and rename it aside when it fails.
 
-**Why:** Several terminals ending at once flush the same outbox: `statSync` throws ENOENT and aborts the flush, and a half-written report can be read, fail `JSON.parse` and get parked in `failed/`.
+**Why:** Several terminals ending at once flush the same outbox: `statSync` throws ENOENT and aborts the flush, and a half-written report can be read, fail `JSON.parse` and get parked in `failed/`. Worse, while one process awaits a POST, another can enqueue a newer copy of the same session: the first then deletes that unsent newer file, or its older POST lands last and the server replaces the newer totals; `requeueFailed` has the same window between `existsSync` and `renameSync`. A locked failed copy that survives `enqueue` can later be resent by `--retry-failed`.
 
-**Context:** `tools/token-report/lib/outbox.js` (`enqueue`, `flush`, `moveTo`).
+**Context:** `tools/token-report/lib/outbox.js` (`enqueue`, `flush`, `moveTo`, `requeueFailed`). Ordering and locked-file cases found by the /ship run 4 cycle-3 review.
 
-**Effort:** S
+**Effort:** M
 **Priority:** P2
 **Depends on:** None
 
@@ -299,6 +325,18 @@ Follow-ups found by /ship's pre-landing review of `feature-agent-token-usage` (2
 
 ## Frontend
 
+### Audit Course link changes
+
+**What:** Pass `RowAuditWriter.MemberChange` for `CourseInCertification`, `CourseJobCategories` and `CourseRecomm` in `CourseRepository.UpdateAsync`, as AppUser/AppRole do for roles, or list Course links as an exception in backend.md.
+
+**Why:** An edit that only changes a course's links is logged with `ActionDesc = ""`, so the history can't say what changed.
+
+**Context:** `CourseRepository.cs` (delete-then-reinsert of the link tables). Adversarial review, /ship run 4.
+
+**Effort:** S
+**Priority:** P3
+**Depends on:** None
+
 ### Row-audit badge freshness and cost
 
 **What:** Make the badge reloadable after actions on the same record (reset password, regenerate/revoke token), fetch only the latest row for the inline badge (TOP 1) and the full trail when the dialog opens, and show a failed reload in the dialog.
@@ -360,6 +398,18 @@ Follow-ups found by /ship's pre-landing review of `feature-agent-token-usage` (2
 **Depends on:** None
 
 ## Code health
+
+### Small correctness items
+
+**What:** Fix the stale `AuthService.updateProfile` comment (RowAudit now records the login UserId, not the `name` claim; `auth.service.ts:53`); cancel or ignore a superseded `RowAuditBadge.open()` reply when `tableName`/`pkid` change; treat a token without `exp` as expired in `AuthService.isLoggedIn`; check AgentTokenUsage rows inside the AppUser delete transaction (or revoke the agent token first) so a concurrent ingest gives the 409, not an FK 500.
+
+**Why:** Each is low impact (misleading comment, wrong history after fast navigation, UI-only session, rare 500), but cheap to fix.
+
+**Context:** `core/auth/auth.service.ts`, `core/components/row-audit-badge/`, `AppUsersController.Delete`. Adversarial review, /ship run 4.
+
+**Effort:** S
+**Priority:** P3
+**Depends on:** None
 
 ### Simplification advisories
 
