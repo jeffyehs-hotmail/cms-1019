@@ -85,3 +85,32 @@ test('flush without an outbox is a no-op; requeueFailed moves failed reports bac
   assert.deepEqual(list(path.join(home, 'outbox')), ['bad.json']);
   assert.deepEqual(list(path.join(home, 'failed')), []);
 });
+
+test('requeueFailed keeps a newer outbox copy of the same session and drops the failed one', async () => {
+  const home = tempHome();
+  enqueue(home, { ...report('s'), project: 'old' });
+  await flush(home, async () => ({ status: 401 }));
+  enqueue(home, { ...report('s'), project: 'new' });
+
+  assert.equal(requeueFailed(home), 0);
+  assert.deepEqual(list(path.join(home, 'outbox')), ['s.json']);
+  assert.deepEqual(list(path.join(home, 'failed')), []);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(home, 'outbox', 's.json'), 'utf8')).project, 'new');
+});
+
+test('flush parks an unparseable outbox file without posting it and still sends the rest', async () => {
+  const home = tempHome();
+  enqueue(home, report('ok'));
+  fs.writeFileSync(path.join(home, 'outbox', 'broken.json'), '{bad', 'utf8');
+  const seen = [];
+
+  const result = await flush(home, async (r) => {
+    seen.push(r.sessionId);
+    return { status: 204 };
+  });
+
+  assert.deepEqual(result, { sent: 1, failed: 1, retry: 0 });
+  assert.deepEqual(seen, ['ok']);
+  assert.deepEqual(list(path.join(home, 'outbox')), []);
+  assert.deepEqual(list(path.join(home, 'failed')), ['broken.json']);
+});

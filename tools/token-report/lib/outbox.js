@@ -82,7 +82,11 @@ function moveTo(dir, file) {
   fs.renameSync(file, path.join(dir, path.basename(file)));
 }
 
-/** Moves failed/ reports back to the outbox (after fixing the token or config). */
+/**
+ * Moves failed/ reports back to the outbox (after fixing the token or config) and returns how many moved.
+ * An outbox copy of the same session is a later enqueue, so it wins and the failed copy is dropped:
+ * the server replaces a session's rows, and the older report would overwrite the newer totals.
+ */
 function requeueFailed(home) {
   const { outbox, failed } = dirs(home);
   let files = [];
@@ -92,8 +96,16 @@ function requeueFailed(home) {
     return 0;
   }
   fs.mkdirSync(outbox, { recursive: true });
-  for (const f of files) fs.renameSync(path.join(failed, f), path.join(outbox, f));
-  return files.length;
+  let moved = 0;
+  for (const f of files) {
+    if (fs.existsSync(path.join(outbox, f))) {
+      fs.rmSync(path.join(failed, f), { force: true });
+      continue;
+    }
+    fs.renameSync(path.join(failed, f), path.join(outbox, f));
+    moved += 1;
+  }
+  return moved;
 }
 
 module.exports = { enqueue, flush, outcomeOf, requeueFailed, fileName };
