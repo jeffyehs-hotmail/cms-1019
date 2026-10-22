@@ -12,7 +12,7 @@ import { LookupService } from '../../../core/services/lookup.service';
 import { RowAuditBadge } from '../../../core/components/row-audit-badge/row-audit-badge';
 import { AppRole, AppRoleRequest } from '../app-role.model';
 import { AppRoleService } from '../app-role.service';
-import { isServerError } from '../../../core/utils/server-error';
+import { errorMessage, isServerError } from '../../../core/utils/server-error';
 
 interface UserOption {
   userId: string;
@@ -58,7 +58,7 @@ export class AppRoleForm implements OnInit {
         if (role) this.patch(role);
       },
       error: (err: unknown) => {
-        if (!isServerError(err)) this.messages.add({ severity: 'error', summary: '錯誤', detail: '無法載入資料' });
+        if (!isServerError(err)) this.messages.add({ severity: 'error', summary: '錯誤', detail: errorMessage(err, '無法載入資料') });
       },
     });
   }

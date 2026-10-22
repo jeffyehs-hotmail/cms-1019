@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { SERVER_ERROR_MESSAGE, isServerError, serverErrorMessage } from './server-error';
+import { SERVER_ERROR_MESSAGE, errorMessage, isServerError, serverErrorMessage } from './server-error';
 
 describe('server-error', () => {
   const res = (status: number, error: unknown = null) => new HttpErrorResponse({ status, error });
@@ -19,6 +19,13 @@ describe('server-error', () => {
     expect(serverErrorMessage(res(500, { message: 42 }))).toBe(SERVER_ERROR_MESSAGE);
     expect(serverErrorMessage(res(502, '<html>Bad Gateway</html>'))).toBe(SERVER_ERROR_MESSAGE);
     expect(serverErrorMessage(res(503))).toBe(SERVER_ERROR_MESSAGE);
+  });
+
+  it('errorMessage uses the API { message } of any HTTP error, else the caller fallback', () => {
+    expect(errorMessage(res(403, { message: '權限不足，無法執行此操作' }), '無法載入')).toBe('權限不足，無法執行此操作');
+    expect(errorMessage(res(404), '無法載入')).toBe('無法載入');
+    expect(errorMessage(res(400, { message: ' ' }), '無法載入')).toBe('無法載入');
+    expect(errorMessage(new Error('boom'), '無法載入')).toBe('無法載入');
   });
 
   it('the fallback matches the API generic 500 message (UnhandledExceptionMiddleware.Message)', () => {

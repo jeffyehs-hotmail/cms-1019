@@ -15,7 +15,7 @@ import { LookupService } from '../../../core/services/lookup.service';
 import { readSession, writeSession } from '../../../core/utils/session-state';
 import { AppUser, AppUserQuery } from '../app-user.model';
 import { AppUserService } from '../app-user.service';
-import { isServerError } from '../../../core/utils/server-error';
+import { errorMessage, isServerError } from '../../../core/utils/server-error';
 
 export const FILTERS_KEY = 'app-user-list-filters';
 export const SORT_KEY = 'app-user-list-sort';
@@ -105,7 +105,7 @@ export class AppUserList implements OnInit {
       },
       error: (err: unknown) => {
         this.loading.set(false);
-        if (!isServerError(err)) this.messages.add({ severity: 'error', summary: '錯誤', detail: '無法載入使用者資料' });
+        if (!isServerError(err)) this.messages.add({ severity: 'error', summary: '錯誤', detail: errorMessage(err, '無法載入使用者資料') });
       },
     });
   }

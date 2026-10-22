@@ -6,7 +6,7 @@ import { ChipModule } from 'primeng/chip';
 import { RowAuditBadge } from '../../../core/components/row-audit-badge/row-audit-badge';
 import { AppRole } from '../app-role.model';
 import { AppRoleService } from '../app-role.service';
-import { isServerError } from '../../../core/utils/server-error';
+import { errorMessage, isServerError } from '../../../core/utils/server-error';
 
 @Component({
   selector: 'app-app-role-detail',
@@ -30,7 +30,7 @@ export class AppRoleDetail implements OnInit {
       error: (err) => {
         this.notFound.set(true);
         if (err?.status !== 404 && !isServerError(err)) {
-          this.messages.add({ severity: 'error', summary: '錯誤', detail: '無法載入角色資料' });
+          this.messages.add({ severity: 'error', summary: '錯誤', detail: errorMessage(err, '無法載入角色資料') });
         }
       },
     });

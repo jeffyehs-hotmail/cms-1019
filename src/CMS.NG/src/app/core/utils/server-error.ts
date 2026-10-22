@@ -12,6 +12,12 @@ export function isServerError(err: unknown): boolean {
   return err instanceof HttpErrorResponse && err.status >= 500 && err.status <= 599;
 }
 
+/** The API's `{ message }` (e.g. a 403 or 409), or `fallback` when the error carries none. */
+export function errorMessage(err: unknown, fallback: string): string {
+  const message = err instanceof HttpErrorResponse ? (err.error as { message?: unknown } | null)?.message : undefined;
+  return typeof message === 'string' && message.trim() ? message : fallback;
+}
+
 /** The `{ message }` of a 5xx body, or the generic fallback. */
 export function serverErrorMessage(err: HttpErrorResponse): string {
   const message = (err.error as { message?: unknown } | null)?.message;

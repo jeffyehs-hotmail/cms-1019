@@ -10,7 +10,7 @@ import { RowAuditBadge } from '../../../core/components/row-audit-badge/row-audi
 import { AppUser } from '../app-user.model';
 import { AppUserService } from '../app-user.service';
 import { ResetPasswordButton } from '../reset-password-button/reset-password-button';
-import { isServerError } from '../../../core/utils/server-error';
+import { errorMessage, isServerError } from '../../../core/utils/server-error';
 
 @Component({
   selector: 'app-app-user-detail',
@@ -61,7 +61,7 @@ export class AppUserDetail implements OnInit {
       error: (err) => {
         this.notFound.set(true);
         if (err?.status !== 404 && !isServerError(err)) {
-          this.messages.add({ severity: 'error', summary: '錯誤', detail: '無法載入使用者資料' });
+          this.messages.add({ severity: 'error', summary: '錯誤', detail: errorMessage(err, '無法載入使用者資料') });
         }
       },
     });
