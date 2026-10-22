@@ -134,6 +134,18 @@ describe('AppRoleForm', () => {
       expect(component.saving()).toBeFalse();
     });
 
+    it('shows the server message when a member does not exist (400)', () => {
+      service.create.and.returnValue(
+        throwError(() => new HttpErrorResponse({ status: 400, error: { message: "使用者 'zz' 不存在" } })),
+      );
+      const add = spyOn(messages, 'add');
+      component.form.patchValue({ roleId: 'R', roleName: 'x' });
+      component.save();
+
+      expect(add).toHaveBeenCalledWith(jasmine.objectContaining({ severity: 'error', detail: "使用者 'zz' 不存在" }));
+      expect(router.navigate).not.toHaveBeenCalled();
+    });
+
     it('leaves the 5xx toast to the interceptor (no second toast) when saving fails', () => {
       service.create.and.returnValue(
         throwError(() => new HttpErrorResponse({ status: 500, error: { message: '系統發生未預期的錯誤，請稍後再試' } })),

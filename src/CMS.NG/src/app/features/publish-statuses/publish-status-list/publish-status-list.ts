@@ -13,7 +13,7 @@ import { BadgeModule } from 'primeng/badge';
 import { readSession, writeSession } from '../../../core/utils/session-state';
 import { PublishStatus, PublishStatusQuery } from '../publish-status.model';
 import { PublishStatusService } from '../publish-status.service';
-import { isServerError } from '../../../core/utils/server-error';
+import { errorMessage, isServerError } from '../../../core/utils/server-error';
 
 export const FILTERS_KEY = 'publish-status-list-filters';
 export const SORT_KEY = 'publish-status-list-sort';
@@ -89,7 +89,7 @@ export class PublishStatusList implements OnInit {
       error: (err: unknown) => {
         this.loading.set(false);
         if (!isServerError(err)) {
-          this.messages.add({ severity: 'error', summary: '錯誤', detail: '無法載入發布狀態資料' });
+          this.messages.add({ severity: 'error', summary: '錯誤', detail: errorMessage(err, '無法載入發布狀態資料') });
         }
       },
     });

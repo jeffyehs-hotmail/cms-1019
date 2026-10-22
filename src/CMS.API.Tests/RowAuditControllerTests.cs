@@ -94,6 +94,7 @@ public class RowAuditControllerTests : IDisposable
     [Theory]
     [InlineData("AppUser", "User")]
     [InlineData("approle", "User")]    // table match ignores case, like the DB
+    [InlineData("PublishStatus", "User")]
     [InlineData("AppUser", "admin")]    // role match is exact
     public async Task Get_AdminTableAsNonAdmin_Returns403WithMessage(string table, string role)
     {

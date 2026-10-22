@@ -10,7 +10,7 @@ import { InputTextModule } from 'primeng/inputtext';
 import { RowAuditBadge } from '../../../core/components/row-audit-badge/row-audit-badge';
 import { PublishStatus, PublishStatusRequest } from '../publish-status.model';
 import { PublishStatusService } from '../publish-status.service';
-import { isServerError } from '../../../core/utils/server-error';
+import { errorMessage, isServerError } from '../../../core/utils/server-error';
 
 @Component({
   selector: 'app-publish-status-form',
@@ -46,7 +46,7 @@ export class PublishStatusForm implements OnInit {
     this.service.getById(Number(this.id())).subscribe({
       next: (status) => this.patch(status),
       error: (err: unknown) => {
-        if (!isServerError(err)) this.messages.add({ severity: 'error', summary: '錯誤', detail: '無法載入資料' });
+        if (!isServerError(err)) this.messages.add({ severity: 'error', summary: '錯誤', detail: errorMessage(err, '無法載入資料') });
       },
     });
   }

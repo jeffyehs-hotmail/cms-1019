@@ -17,8 +17,8 @@ public class RowAuditController(IRowAuditRepository repo) : ControllerBase
         new[] { "AppRole", "AppUser", "Course", "CourseGroup", "FeaturedPromoItem", "Partner", "PublishStatus" }
             .ToDictionary(t => t, StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>History of these tables is Admin-only, like their APIs (it names every account and who changed roles).</summary>
-    public static readonly IReadOnlySet<string> AdminOnlyTables = new HashSet<string>(["AppUser", "AppRole"]);
+    /// <summary>History of these tables is Admin-only, like their APIs (AppUser/AppRole history names every account and who changed roles).</summary>
+    public static readonly IReadOnlySet<string> AdminOnlyTables = new HashSet<string>(["AppUser", "AppRole", "PublishStatus"]);
 
     /// <summary>History of one record: RowAudit rows with this TableName and PrimaryKeyValues = pkid, newest first.</summary>
     [HttpGet]

@@ -5,7 +5,7 @@ import { ButtonModule } from 'primeng/button';
 import { RowAuditBadge } from '../../../core/components/row-audit-badge/row-audit-badge';
 import { PublishStatus } from '../publish-status.model';
 import { PublishStatusService } from '../publish-status.service';
-import { isServerError } from '../../../core/utils/server-error';
+import { errorMessage, isServerError } from '../../../core/utils/server-error';
 
 @Component({
   selector: 'app-publish-status-detail',
@@ -29,7 +29,7 @@ export class PublishStatusDetail implements OnInit {
       error: (err) => {
         this.notFound.set(true);
         if (err?.status !== 404 && !isServerError(err)) {
-          this.messages.add({ severity: 'error', summary: '錯誤', detail: '無法載入發布狀態資料' });
+          this.messages.add({ severity: 'error', summary: '錯誤', detail: errorMessage(err, '無法載入發布狀態資料') });
         }
       },
     });

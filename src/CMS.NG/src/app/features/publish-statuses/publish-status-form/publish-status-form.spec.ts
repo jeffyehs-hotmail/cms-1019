@@ -175,6 +175,13 @@ describe('PublishStatusForm', () => {
     });
   });
 
+  it('toasts the API message when loading is refused (403 for a non-admin)', () => {
+    service.getById.and.returnValue(throwError(() => new HttpErrorResponse({ status: 403, error: { message: '權限不足，無法執行此操作' } })));
+    const add = spyOn(messages, 'add');
+    create('1');
+    expect(add).toHaveBeenCalledWith(jasmine.objectContaining({ severity: 'error', detail: '權限不足，無法執行此操作' }));
+  });
+
   it('shows the 異動紀錄 badge only when editing an existing record', () => {
     create();
     expect(fixture.nativeElement.querySelector('app-row-audit-badge')).toBeNull();

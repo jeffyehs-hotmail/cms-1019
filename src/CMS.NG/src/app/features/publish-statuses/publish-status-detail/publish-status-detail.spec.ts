@@ -70,6 +70,13 @@ describe('PublishStatusDetail', () => {
     expect(fixture.componentInstance.notFound()).toBeTrue();
   });
 
+  it('toasts the API message when loading is refused (403 for a non-admin)', () => {
+    service.getById.and.returnValue(throwError(() => new HttpErrorResponse({ status: 403, error: { message: '權限不足，無法執行此操作' } })));
+    const add = spyOn(TestBed.inject(MessageService), 'add');
+    create('2');
+    expect(add).toHaveBeenCalledWith(jasmine.objectContaining({ severity: 'error', detail: '權限不足，無法執行此操作' }));
+  });
+
   it('edit() navigates to the edit page; back() to the list', () => {
     create('2');
     const router = TestBed.inject(Router);

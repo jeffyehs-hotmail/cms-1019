@@ -104,7 +104,7 @@ export class AppRoleForm implements OnInit {
       },
       error: (err: HttpErrorResponse) => {
         this.saving.set(false);
-        const detail = err.status === 409 ? (err.error?.message ?? '角色代碼已存在') : '儲存失敗';
+        const detail = errorMessage(err, err.status === 409 ? '角色代碼已存在' : '儲存失敗');
         if (!isServerError(err)) this.messages.add({ severity: 'error', summary: '錯誤', detail });
       },
     });
