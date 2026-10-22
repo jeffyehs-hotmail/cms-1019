@@ -6,8 +6,10 @@ using Dapper;
 
 namespace CMS.API.Repositories;
 
-public class CourseRepository(IDbConnectionFactory db) : ICourseRepository
+public class CourseRepository(IDbConnectionFactory db, RowAuditWriter audit) : ICourseRepository
 {
+    private const string Table = "Course";
+
     // List columns only — the long texts (up to nvarchar(max)) are loaded by GetByIdAsync.
     private const string ListColumns = """
         c.pkid, c.Title, c.OfficialTitle, c.CourseId, c.ProdCourseId, c.FriendlyUrl, c.DisplayOrder,
@@ -163,6 +165,7 @@ public class CourseRepository(IDbConnectionFactory db) : ICourseRepository
 
         await InsertLinksAsync(conn, tx, pkid, request);
 
+        await audit.LogInsertAsync(Table, (await RowAuditWriter.LoadRowAsync(tx, Table, pkid))!, tx);
         tx.Commit();
         return pkid;
     }
@@ -172,9 +175,9 @@ public class CourseRepository(IDbConnectionFactory db) : ICourseRepository
         using var conn = await db.OpenAsync();
         using var tx = conn.BeginTransaction();
 
-        var oldCourseId = await conn.ExecuteScalarAsync<string?>(
-            "SELECT CourseId FROM Course WHERE pkid = @Pkid", new { request.Pkid }, tx);
-        if (oldCourseId is null) return false;
+        var before = await RowAuditWriter.LoadRowAsync(tx, Table, request.Pkid);
+        if (before is null) return false;
+        var oldCourseId = (string)before["CourseId"]!;
 
         await conn.ExecuteAsync("""
             UPDATE Course
@@ -202,6 +205,7 @@ public class CourseRepository(IDbConnectionFactory db) : ICourseRepository
             """, new { request.Pkid }, tx);
         await InsertLinksAsync(conn, tx, request.Pkid, request);
 
+        await audit.LogUpdateAsync(Table, before, (await RowAuditWriter.LoadRowAsync(tx, Table, request.Pkid))!, tx);
         tx.Commit();
         return true;
     }
@@ -211,9 +215,9 @@ public class CourseRepository(IDbConnectionFactory db) : ICourseRepository
         using var conn = await db.OpenAsync();
         using var tx = conn.BeginTransaction();
 
-        var courseId = await conn.ExecuteScalarAsync<string?>(
-            "SELECT CourseId FROM Course WHERE pkid = @pkid", new { pkid }, tx);
-        if (courseId is null) return false;
+        var row = await RowAuditWriter.LoadRowAsync(tx, Table, pkid);
+        if (row is null) return false;
+        var courseId = (string)row["CourseId"]!;
 
         // CourseRecomm has no FK; CourseInCertification / CourseJobCategories cascade.
         await conn.ExecuteAsync(
@@ -221,6 +225,7 @@ public class CourseRepository(IDbConnectionFactory db) : ICourseRepository
             new { courseId = Ansi(courseId) }, tx);
         await conn.ExecuteAsync("DELETE FROM Course WHERE pkid = @pkid", new { pkid }, tx);
 
+        await audit.LogDeleteAsync(Table, row, tx);
         tx.Commit();
         return true;
     }

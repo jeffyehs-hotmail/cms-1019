@@ -3,6 +3,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { Router, provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
+import { RowAuditService } from '../../../core/components/row-audit-badge/row-audit.service';
 import { MessageService } from 'primeng/api';
 import { CourseGroup } from '../course-group.model';
 import { CourseGroupService } from '../course-group.service';
@@ -37,6 +38,7 @@ describe('CourseGroupForm', () => {
         provideNoopAnimations(),
         MessageService,
         { provide: CourseGroupService, useValue: service },
+        { provide: RowAuditService, useValue: jasmine.createSpyObj<RowAuditService>('RowAuditService', { getHistory: of([]) }) },
       ],
     }).compileComponents();
 
@@ -83,12 +85,25 @@ describe('CourseGroupForm', () => {
     });
 
     it('shows an error toast and stays on the page when saving fails', () => {
-      service.create.and.returnValue(throwError(() => new HttpErrorResponse({ status: 500 })));
+      service.create.and.returnValue(throwError(() => new HttpErrorResponse({ status: 400 })));
       const add = spyOn(messages, 'add');
       component.form.patchValue({ description: 'Linux' });
       component.save();
 
       expect(add).toHaveBeenCalledWith(jasmine.objectContaining({ severity: 'error', detail: '儲存失敗' }));
+      expect(router.navigate).not.toHaveBeenCalled();
+      expect(component.saving()).toBeFalse();
+    });
+
+    it('leaves the 5xx toast to the interceptor (no second toast) when saving fails', () => {
+      service.create.and.returnValue(
+        throwError(() => new HttpErrorResponse({ status: 500, error: { message: '系統發生未預期的錯誤，請稍後再試' } })),
+      );
+      const add = spyOn(messages, 'add');
+      component.form.patchValue({ description: 'Linux' });
+      component.save();
+
+      expect(add).not.toHaveBeenCalledWith(jasmine.objectContaining({ severity: 'error' }));
       expect(router.navigate).not.toHaveBeenCalled();
       expect(component.saving()).toBeFalse();
     });
@@ -121,5 +136,15 @@ describe('CourseGroupForm', () => {
       component.cancel();
       expect(router.navigate).toHaveBeenCalledWith(['/course-groups', '2']);
     });
+  });
+
+  it('shows the 異動紀錄 badge only when editing an existing record', () => {
+    create();
+    expect(fixture.nativeElement.querySelector('app-row-audit-badge')).toBeNull();
+    fixture.destroy();
+
+    create('2');
+    expect(fixture.nativeElement.querySelector('.page-header .start app-row-audit-badge')).not.toBeNull();
+    expect(TestBed.inject(RowAuditService).getHistory).toHaveBeenCalledOnceWith('CourseGroup', '2');
   });
 });

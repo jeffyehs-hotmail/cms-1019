@@ -105,7 +105,7 @@ The API checks every FK value before INSERT/UPDATE. An unknown partner, course g
 On the detail page, the FK labels link to the parent's detail page:
 - 原廠 → `/partners/{partnerPkid}`
 - 課程群組 → `/course-groups/{courseGroupPkid}` (only when not null)
-- 上架狀態 → `/publish-statuses/{publishStatusPkid}`
+- 上架狀態 → `/publish-statuses/{publishStatusPkid}` (Admin only: PublishStatus is an Admin page, so other users see a plain label)
 
 The list shows plain labels, to keep the table compact.
 

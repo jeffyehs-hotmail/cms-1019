@@ -1,0 +1,49 @@
+:host {
+  display: inline-flex;
+  min-width: 0;
+}
+
+.row-audit-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+  padding: 0.2rem 0.65rem;
+  border: 1px solid #d1d5db;
+  border-radius: 999px;
+  background: #f8fafc;
+  color: #334155;
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+
+  &:hover {
+    background: #ecfdf5;
+    border-color: #10b981;
+  }
+
+  &:focus-visible {
+    outline: 2px solid #10b981;
+    outline-offset: 1px;
+  }
+
+  .label {
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .latest {
+    color: #64748b;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.col-time {
+  white-space: nowrap;
+}
+
+.col-desc {
+  word-break: break-word;
+}

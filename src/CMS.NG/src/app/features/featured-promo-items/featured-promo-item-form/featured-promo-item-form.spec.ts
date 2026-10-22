@@ -151,6 +151,22 @@ describe('FeaturedPromoItemForm', () => {
       expect(component.saving()).toBeFalse();
     });
 
+    it('leaves the 5xx toast to the interceptor (no second toast) when saving fails', () => {
+      service.create.and.returnValue(
+        throwError(() => new HttpErrorResponse({ status: 500, error: { message: '系統發生未預期的錯誤，請稍後再試' } })),
+      );
+      const add = spyOn(messages, 'add');
+      const saved = jasmine.createSpy('saved');
+      component.saved.subscribe(saved);
+      select(googleAi);
+
+      component.save();
+
+      expect(add).not.toHaveBeenCalledWith(jasmine.objectContaining({ severity: 'error' }));
+      expect(saved).not.toHaveBeenCalled();
+      expect(component.saving()).toBeFalse();
+    });
+
     it('cancel() emits cancelled', () => {
       const cancelled = jasmine.createSpy('cancelled');
       component.cancelled.subscribe(cancelled);

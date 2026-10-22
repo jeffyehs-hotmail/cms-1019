@@ -17,6 +17,8 @@ describe('AppUserService', () => {
     isActive: true,
     passwordUpdatedTime: null,
     roleCount: 1,
+    hasAgentToken: false,
+    agentTokenUsageCount: 0,
     roles: [],
   };
 
@@ -75,6 +77,22 @@ describe('AppUserService', () => {
   it('resetPassword() POSTs /{pkid}/reset-password', () => {
     service.resetPassword(1).subscribe();
     const req = http.expectOne(`${baseUrl}/1/reset-password`);
+    expect(req.request.method).toBe('POST');
+    req.flush(null, { status: 204, statusText: 'No Content' });
+  });
+
+  it('regenerateAgentToken() POSTs /{pkid}/regenerate-agent-token and returns the token', () => {
+    let token = '';
+    service.regenerateAgentToken(1).subscribe((r) => (token = r.token));
+    const req = http.expectOne(`${baseUrl}/1/regenerate-agent-token`);
+    expect(req.request.method).toBe('POST');
+    req.flush({ token: 'cms_at_x' });
+    expect(token).toBe('cms_at_x');
+  });
+
+  it('revokeAgentToken() POSTs /{pkid}/revoke-agent-token', () => {
+    service.revokeAgentToken(1).subscribe();
+    const req = http.expectOne(`${baseUrl}/1/revoke-agent-token`);
     expect(req.request.method).toBe('POST');
     req.flush(null, { status: 204, statusText: 'No Content' });
   });

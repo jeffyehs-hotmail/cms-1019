@@ -78,6 +78,13 @@ public class FakeAppRoleRepository : IAppRoleRepository
             return Task.FromResult(_rows.Any(r => string.Equals(r.Role.RoleId, roleId, StringComparison.OrdinalIgnoreCase)));
     }
 
+    /// <summary>AppUser ids CheckUsersAsync accepts (the seeded members).</summary>
+    public static readonly IReadOnlyList<string> Users = ["alice", "bob", "carol"];
+
+    public Task<IReadOnlyList<string>> CheckUsersAsync(IEnumerable<string> userIds)
+        => Task.FromResult<IReadOnlyList<string>>(
+            userIds.Distinct().Where(id => !Users.Contains(id, StringComparer.OrdinalIgnoreCase)).ToList());
+
     public Task<int> CreateAsync(AppRoleRequest request)
     {
         lock (_lock)

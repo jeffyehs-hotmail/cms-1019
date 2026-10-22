@@ -13,6 +13,7 @@ import { BadgeModule } from 'primeng/badge';
 import { readSession, writeSession } from '../../../core/utils/session-state';
 import { PublishStatus, PublishStatusQuery } from '../publish-status.model';
 import { PublishStatusService } from '../publish-status.service';
+import { errorMessage, isServerError } from '../../../core/utils/server-error';
 
 export const FILTERS_KEY = 'publish-status-list-filters';
 export const SORT_KEY = 'publish-status-list-sort';
@@ -85,9 +86,11 @@ export class PublishStatusList implements OnInit {
         this.statuses.set(rows);
         this.loading.set(false);
       },
-      error: () => {
+      error: (err: unknown) => {
         this.loading.set(false);
-        this.messages.add({ severity: 'error', summary: '錯誤', detail: '無法載入發布狀態資料' });
+        if (!isServerError(err)) {
+          this.messages.add({ severity: 'error', summary: '錯誤', detail: errorMessage(err, '無法載入發布狀態資料') });
+        }
       },
     });
   }
@@ -157,7 +160,7 @@ export class PublishStatusList implements OnInit {
       },
       error: (err: HttpErrorResponse) => {
         const detail = err.status === 409 ? (err.error?.message ?? '使用中，無法刪除') : '刪除失敗';
-        this.messages.add({ severity: 'error', summary: '錯誤', detail });
+        if (!isServerError(err)) this.messages.add({ severity: 'error', summary: '錯誤', detail });
       },
     });
   }

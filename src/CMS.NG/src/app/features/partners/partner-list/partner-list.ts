@@ -12,6 +12,7 @@ import { BadgeModule } from 'primeng/badge';
 import { readSession, writeSession } from '../../../core/utils/session-state';
 import { Partner, PartnerQuery } from '../partner.model';
 import { PartnerService } from '../partner.service';
+import { isServerError } from '../../../core/utils/server-error';
 
 export const FILTERS_KEY = 'partner-list-filters';
 export const SORT_KEY = 'partner-list-sort';
@@ -71,9 +72,9 @@ export class PartnerList implements OnInit {
         this.partners.set(rows);
         this.loading.set(false);
       },
-      error: () => {
+      error: (err: unknown) => {
         this.loading.set(false);
-        this.messages.add({ severity: 'error', summary: '錯誤', detail: '無法載入原廠資料' });
+        if (!isServerError(err)) this.messages.add({ severity: 'error', summary: '錯誤', detail: '無法載入原廠資料' });
       },
     });
   }
@@ -143,7 +144,7 @@ export class PartnerList implements OnInit {
       },
       error: (err: HttpErrorResponse) => {
         const detail = err.status === 409 ? (err.error?.message ?? '使用中，無法刪除') : '刪除失敗';
-        this.messages.add({ severity: 'error', summary: '錯誤', detail });
+        if (!isServerError(err)) this.messages.add({ severity: 'error', summary: '錯誤', detail });
       },
     });
   }

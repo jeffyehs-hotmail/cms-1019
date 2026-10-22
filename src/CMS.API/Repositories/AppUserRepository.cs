@@ -6,12 +6,16 @@ using Dapper;
 
 namespace CMS.API.Repositories;
 
-public class AppUserRepository(IDbConnectionFactory db) : IAppUserRepository
+public class AppUserRepository(IDbConnectionFactory db, RowAuditWriter audit) : IAppUserRepository
 {
-    // PasswordHash is intentionally never selected.
+    private const string Table = "AppUser";
+
+    // PasswordHash / AgentTokenHash are intentionally never selected.
     private const string SelectSql = """
         SELECT u.pkid, u.UserId, u.UserName, u.IsActive, u.PasswordUpdatedTime,
-               (SELECT COUNT(*) FROM AppUserRole ur WHERE ur.UserId = u.UserId) AS RoleCount
+               (SELECT COUNT(*) FROM AppUserRole ur WHERE ur.UserId = u.UserId) AS RoleCount,
+               CAST(CASE WHEN u.AgentTokenHash IS NULL THEN 0 ELSE 1 END AS bit) AS HasAgentToken,
+               (SELECT COUNT(*) FROM AgentTokenUsage a WHERE a.UserId = u.UserId) AS AgentTokenUsageCount
         FROM AppUser u
         """;
 
@@ -108,6 +112,7 @@ public class AppUserRepository(IDbConnectionFactory db) : IAppUserRepository
 
         await InsertRolesAsync(conn, tx, request.UserId, request.RoleIds);
 
+        await audit.LogInsertAsync(Table, (await RowAuditWriter.LoadRowAsync(tx, Table, pkid))!, tx);
         tx.Commit();
         return pkid;
     }
@@ -118,19 +123,23 @@ public class AppUserRepository(IDbConnectionFactory db) : IAppUserRepository
         using var tx = conn.BeginTransaction();
 
         // UserId is the table PK (referenced by AppUserRole) — never changed on update.
-        var userId = await conn.ExecuteScalarAsync<string?>(
-            "SELECT UserId FROM AppUser WHERE pkid = @Pkid", new { request.Pkid }, tx);
-        if (userId is null) return false;
+        var before = await RowAuditWriter.LoadRowAsync(tx, Table, request.Pkid);
+        if (before is null) return false;
+        var userId = (string)before["UserId"]!;
 
         // PasswordHash / PasswordUpdatedTime are not touched here (see ResetPasswordAsync).
         await conn.ExecuteAsync(
             "UPDATE AppUser SET UserName = @UserName, IsActive = @IsActive WHERE pkid = @Pkid",
             new { request.UserName, request.IsActive, request.Pkid }, tx);
 
-        // n-n: delete-then-reinsert
+        // n-n: delete-then-reinsert; the audit row names added/removed roles (granting Admin must be traceable).
+        var oldRoles = await conn.QueryAsync<string>(
+            "SELECT RoleId FROM AppUserRole WHERE UserId = @userId", new { userId }, tx);
         await conn.ExecuteAsync("DELETE FROM AppUserRole WHERE UserId = @userId", new { userId }, tx);
         await InsertRolesAsync(conn, tx, userId, request.RoleIds);
 
+        await audit.LogUpdateAsync(Table, before, (await RowAuditWriter.LoadRowAsync(tx, Table, request.Pkid))!, tx,
+            RowAuditWriter.MemberChange("RoleIds", oldRoles, request.RoleIds));
         tx.Commit();
         return true;
     }
@@ -138,10 +147,34 @@ public class AppUserRepository(IDbConnectionFactory db) : IAppUserRepository
     public async Task<bool> ResetPasswordAsync(int pkid, string passwordHash)
     {
         using var conn = await db.OpenAsync();
-        var rows = await conn.ExecuteAsync(
+        using var tx = conn.BeginTransaction();
+
+        var before = await RowAuditWriter.LoadRowAsync(tx, Table, pkid);
+        if (before is null) return false;
+
+        await conn.ExecuteAsync(
             "UPDATE AppUser SET PasswordHash = @passwordHash, PasswordUpdatedTime = NULL WHERE pkid = @pkid",
-            new { pkid, passwordHash });
-        return rows > 0;
+            new { pkid, passwordHash }, tx);
+
+        await audit.LogUpdateAsync(Table, before, (await RowAuditWriter.LoadRowAsync(tx, Table, pkid))!, tx);
+        tx.Commit();
+        return true;
+    }
+
+    public async Task<bool> SetAgentTokenHashAsync(int pkid, string? tokenHash)
+    {
+        using var conn = await db.OpenAsync();
+        using var tx = conn.BeginTransaction();
+
+        var before = await RowAuditWriter.LoadRowAsync(tx, Table, pkid);
+        if (before is null) return false;
+
+        await conn.ExecuteAsync(
+            "UPDATE AppUser SET AgentTokenHash = @tokenHash WHERE pkid = @pkid", new { pkid, tokenHash }, tx);
+
+        await audit.LogUpdateAsync(Table, before, (await RowAuditWriter.LoadRowAsync(tx, Table, pkid))!, tx);
+        tx.Commit();
+        return true;
     }
 
     public async Task<bool> DeleteAsync(int pkid)
@@ -149,13 +182,14 @@ public class AppUserRepository(IDbConnectionFactory db) : IAppUserRepository
         using var conn = await db.OpenAsync();
         using var tx = conn.BeginTransaction();
 
-        var userId = await conn.ExecuteScalarAsync<string?>(
-            "SELECT UserId FROM AppUser WHERE pkid = @pkid", new { pkid }, tx);
-        if (userId is null) return false;
+        var row = await RowAuditWriter.LoadRowAsync(tx, Table, pkid);
+        if (row is null) return false;
+        var userId = (string)row["UserId"]!;
 
         await conn.ExecuteAsync("DELETE FROM AppUserRole WHERE UserId = @userId", new { userId }, tx);
         await conn.ExecuteAsync("DELETE FROM AppUser WHERE pkid = @pkid", new { pkid }, tx);
 
+        await audit.LogDeleteAsync(Table, row, tx);
         tx.Commit();
         return true;
     }

@@ -3,7 +3,10 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { Router, provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
-import { MessageService } from 'primeng/api';
+import { RowAuditService } from '../../../core/components/row-audit-badge/row-audit.service';
+import { signal } from '@angular/core';
+import { ConfirmationService, MessageService } from 'primeng/api';
+import { AuthService } from '../../../core/auth/auth.service';
 import { LookupService } from '../../../core/services/lookup.service';
 import { AppUser } from '../app-user.model';
 import { AppUserService } from '../app-user.service';
@@ -16,6 +19,7 @@ describe('AppUserForm', () => {
   let lookups: jasmine.SpyObj<LookupService>;
   let router: Router;
   let messages: MessageService;
+  const isAdmin = signal(true);
 
   const roles = [
     { pkid: 1, roleId: 'Admin', roleName: 'Administrator' },
@@ -29,6 +33,8 @@ describe('AppUserForm', () => {
     isActive: false,
     passwordUpdatedTime: null,
     roleCount: 1,
+    hasAgentToken: false,
+    agentTokenUsageCount: 0,
     roles: [roles[0]],
   };
 
@@ -40,6 +46,7 @@ describe('AppUserForm', () => {
   }
 
   beforeEach(async () => {
+    isAdmin.set(true);
     service = jasmine.createSpyObj<AppUserService>('AppUserService', ['getById', 'create', 'update']);
     lookups = jasmine.createSpyObj<LookupService>('LookupService', ['getAppRoles']);
     lookups.getAppRoles.and.returnValue(of(roles));
@@ -53,7 +60,10 @@ describe('AppUserForm', () => {
         provideRouter([]),
         provideNoopAnimations(),
         MessageService,
+        ConfirmationService,
+        { provide: AuthService, useValue: { isAdmin } },
         { provide: AppUserService, useValue: service },
+        { provide: RowAuditService, useValue: jasmine.createSpyObj<RowAuditService>('RowAuditService', { getHistory: of([]) }) },
         { provide: LookupService, useValue: lookups },
       ],
     }).compileComponents();
@@ -129,10 +139,40 @@ describe('AppUserForm', () => {
       expect(component.saving()).toBeFalse();
       expect(router.navigate).not.toHaveBeenCalled();
     });
+
+    it('leaves the 5xx toast to the interceptor (no second toast) when saving fails', () => {
+      service.create.and.returnValue(
+        throwError(() => new HttpErrorResponse({ status: 500, error: { message: '系統發生未預期的錯誤，請稍後再試' } })),
+      );
+      const add = spyOn(messages, 'add');
+      component.form.patchValue({ userId: 'dave', userName: 'Dave' });
+      component.save();
+
+      expect(add).not.toHaveBeenCalledWith(jasmine.objectContaining({ severity: 'error' }));
+      expect(component.saving()).toBeFalse();
+      expect(router.navigate).not.toHaveBeenCalled();
+    });
+  });
+
+  const resetButton = () => (fixture.nativeElement as HTMLElement).querySelector('[data-action="reset-password"]');
+
+  it('hides 重設密碼 in add mode', () => {
+    create();
+    expect(resetButton()).toBeNull();
+  });
+
+  it('hides 重設密碼 in edit mode from non-Admins', () => {
+    isAdmin.set(false);
+    create('1');
+    expect(resetButton()).toBeNull();
   });
 
   describe('edit mode', () => {
     beforeEach(() => create('1'));
+
+    it('shows 重設密碼 to Admins once the user is loaded', () => {
+      expect(resetButton()).not.toBeNull();
+    });
 
     it('loads the record, patches the form and disables UserId', () => {
       expect(service.getById).toHaveBeenCalledOnceWith(1);
@@ -166,5 +206,15 @@ describe('AppUserForm', () => {
       component.cancel();
       expect(router.navigate).toHaveBeenCalledWith(['/app-users', '1']);
     });
+  });
+
+  it('shows the 異動紀錄 badge only when editing an existing record', () => {
+    create();
+    expect(fixture.nativeElement.querySelector('app-row-audit-badge')).toBeNull();
+    fixture.destroy();
+
+    create('1');
+    expect(fixture.nativeElement.querySelector('.page-header .start app-row-audit-badge')).not.toBeNull();
+    expect(TestBed.inject(RowAuditService).getHistory).toHaveBeenCalledOnceWith('AppUser', '1');
   });
 });

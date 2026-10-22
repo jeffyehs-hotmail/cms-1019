@@ -1,0 +1,8 @@
+.claude/worktrees/
+
+# gstack skills (installed locally, not project code)
+.claude/skills/*
+!.claude/skills/crud/
+
+# Personal scratch notes (may hold local credentials); never commit
+cms-cc.txt

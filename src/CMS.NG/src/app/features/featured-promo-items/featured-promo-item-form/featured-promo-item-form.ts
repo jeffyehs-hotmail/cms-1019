@@ -9,6 +9,7 @@ import { PromotionLookup } from '../../../core/models/lookup.model';
 import { LookupService } from '../../../core/services/lookup.service';
 import { FeaturedPromoItem, FeaturedPromoItemRequest, PromoContent } from '../featured-promo-item.model';
 import { FeaturedPromoItemService } from '../featured-promo-item.service';
+import { isServerError } from '../../../core/utils/server-error';
 
 /** At least one non-whitespace character. */
 const NOT_BLANK = Validators.pattern(/\S/);
@@ -118,7 +119,9 @@ export class FeaturedPromoItemForm implements OnInit {
       },
       error: (err: HttpErrorResponse) => {
         this.saving.set(false);
-        this.messages.add({ severity: 'error', summary: '錯誤', detail: err.error?.message ?? '儲存失敗' });
+        if (!isServerError(err)) {
+          this.messages.add({ severity: 'error', summary: '錯誤', detail: err.error?.message ?? '儲存失敗' });
+        }
       },
     });
   }

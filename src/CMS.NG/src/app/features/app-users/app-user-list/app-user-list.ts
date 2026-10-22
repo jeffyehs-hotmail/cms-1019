@@ -15,6 +15,7 @@ import { LookupService } from '../../../core/services/lookup.service';
 import { readSession, writeSession } from '../../../core/utils/session-state';
 import { AppUser, AppUserQuery } from '../app-user.model';
 import { AppUserService } from '../app-user.service';
+import { errorMessage, isServerError } from '../../../core/utils/server-error';
 
 export const FILTERS_KEY = 'app-user-list-filters';
 export const SORT_KEY = 'app-user-list-sort';
@@ -102,9 +103,9 @@ export class AppUserList implements OnInit {
         this.users.set(rows);
         this.loading.set(false);
       },
-      error: () => {
+      error: (err: unknown) => {
         this.loading.set(false);
-        this.messages.add({ severity: 'error', summary: '錯誤', detail: '無法載入使用者資料' });
+        if (!isServerError(err)) this.messages.add({ severity: 'error', summary: '錯誤', detail: errorMessage(err, '無法載入使用者資料') });
       },
     });
   }
@@ -121,9 +122,9 @@ export class AppUserList implements OnInit {
     this.lookupsLoaded = true;
     this.lookups.getAppRoles().subscribe({
       next: (roles) => this.roles.set(roles),
-      error: () => {
+      error: (err: unknown) => {
         this.lookupsLoaded = false;
-        this.messages.add({ severity: 'error', summary: '錯誤', detail: '無法載入角色選項' });
+        if (!isServerError(err)) this.messages.add({ severity: 'error', summary: '錯誤', detail: '無法載入角色選項' });
       },
     });
   }
@@ -186,7 +187,11 @@ export class AppUserList implements OnInit {
         this.messages.add({ severity: 'success', summary: '已刪除', detail: `使用者「${user.userId}」已刪除` });
         this.load();
       },
-      error: () => this.messages.add({ severity: 'error', summary: '錯誤', detail: '刪除失敗' }),
+      error: (err) => {
+        if (!isServerError(err)) {
+          this.messages.add({ severity: 'error', summary: '錯誤', detail: err?.error?.message ?? '刪除失敗' });
+        }
+      },
     });
   }
 }

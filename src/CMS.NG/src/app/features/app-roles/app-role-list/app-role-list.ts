@@ -12,6 +12,7 @@ import { BadgeModule } from 'primeng/badge';
 import { readSession, writeSession } from '../../../core/utils/session-state';
 import { AppRole, AppRoleQuery } from '../app-role.model';
 import { AppRoleService } from '../app-role.service';
+import { errorMessage, isServerError } from '../../../core/utils/server-error';
 
 export const FILTERS_KEY = 'app-role-list-filters';
 export const SORT_KEY = 'app-role-list-sort';
@@ -76,9 +77,9 @@ export class AppRoleList implements OnInit {
         this.roles.set(rows);
         this.loading.set(false);
       },
-      error: () => {
+      error: (err: unknown) => {
         this.loading.set(false);
-        this.messages.add({ severity: 'error', summary: '錯誤', detail: '無法載入角色資料' });
+        if (!isServerError(err)) this.messages.add({ severity: 'error', summary: '錯誤', detail: errorMessage(err, '無法載入角色資料') });
       },
     });
   }
@@ -144,7 +145,9 @@ export class AppRoleList implements OnInit {
         this.messages.add({ severity: 'success', summary: '已刪除', detail: `角色「${role.roleId}」已刪除` });
         this.load();
       },
-      error: () => this.messages.add({ severity: 'error', summary: '錯誤', detail: '刪除失敗' }),
+      error: (err: unknown) => {
+        if (!isServerError(err)) this.messages.add({ severity: 'error', summary: '錯誤', detail: '刪除失敗' });
+      },
     });
   }
 }

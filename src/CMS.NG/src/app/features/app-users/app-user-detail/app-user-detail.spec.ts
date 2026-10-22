@@ -1,10 +1,16 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { HttpErrorResponse } from '@angular/common/http';
+import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { Router, provideRouter } from '@angular/router';
+import { signal } from '@angular/core';
+import { By } from '@angular/platform-browser';
 import { of, throwError } from 'rxjs';
+import { RowAuditService } from '../../../core/components/row-audit-badge/row-audit.service';
 import { Confirmation, ConfirmationService, MessageService } from 'primeng/api';
 import { AppUser } from '../app-user.model';
 import { AppUserService } from '../app-user.service';
+import { AuthService } from '../../../core/auth/auth.service';
+import { ResetPasswordButton } from '../reset-password-button/reset-password-button';
 import { AppUserDetail } from './app-user-detail';
 
 describe('AppUserDetail', () => {
@@ -12,6 +18,7 @@ describe('AppUserDetail', () => {
   let service: jasmine.SpyObj<AppUserService>;
   let confirmation: ConfirmationService;
   let messages: MessageService;
+  const isAdmin = signal(true);
 
   const user: AppUser = {
     pkid: 1,
@@ -20,6 +27,8 @@ describe('AppUserDetail', () => {
     isActive: true,
     passwordUpdatedTime: null,
     roleCount: 2,
+    hasAgentToken: false,
+    agentTokenUsageCount: 0,
     roles: [
       { pkid: 1, roleId: 'Admin', roleName: 'Administrator' },
       { pkid: 2, roleId: 'User', roleName: 'User' },
@@ -36,17 +45,26 @@ describe('AppUserDetail', () => {
   const text = (el: HTMLElement, f: string) => el.querySelector(`[data-field="${f}"]`)?.textContent?.trim();
 
   beforeEach(async () => {
-    service = jasmine.createSpyObj<AppUserService>('AppUserService', ['getById', 'resetPassword']);
+    isAdmin.set(true);
+    service = jasmine.createSpyObj<AppUserService>('AppUserService', [
+      'getById',
+      'regenerateAgentToken',
+      'revokeAgentToken',
+    ]);
     service.getById.and.returnValue(of(user));
-    service.resetPassword.and.returnValue(of(undefined));
+    service.regenerateAgentToken.and.returnValue(of({ token: 'cms_at_new' }));
+    service.revokeAgentToken.and.returnValue(of(undefined));
 
     await TestBed.configureTestingModule({
       imports: [AppUserDetail],
       providers: [
         provideRouter([]),
+        provideNoopAnimations(),
         MessageService,
         ConfirmationService,
         { provide: AppUserService, useValue: service },
+        { provide: RowAuditService, useValue: jasmine.createSpyObj<RowAuditService>('RowAuditService', { getHistory: of([]) }) },
+        { provide: AuthService, useValue: { isAdmin } },
       ],
     }).compileComponents();
 
@@ -84,6 +102,18 @@ describe('AppUserDetail', () => {
     expect(add).not.toHaveBeenCalled();
   });
 
+  // Regression: ISSUE-002 — load errors toasted a fixed text instead of the API 403 message.
+  // Found by /qa on 2026-10-22
+  // Report: .gstack/qa-reports/run-20261022T060024Z/qa-report-cms-2026-10-22.md
+  it('toasts the API message when loading is refused (403 for a non-admin)', () => {
+    service.getById.and.returnValue(
+      throwError(() => new HttpErrorResponse({ status: 403, error: { message: '權限不足，無法執行此操作' } })),
+    );
+    const add = spyOn(messages, 'add');
+    create('1');
+    expect(add).toHaveBeenCalledWith(jasmine.objectContaining({ severity: 'error', detail: '權限不足，無法執行此操作' }));
+  });
+
   it('edit() navigates to the edit form', () => {
     create('1');
     const router = TestBed.inject(Router);
@@ -92,48 +122,130 @@ describe('AppUserDetail', () => {
     expect(router.navigate).toHaveBeenCalledWith(['/app-users', '1', 'edit']);
   });
 
-  it('confirmResetPassword() resets after confirmation and reloads', () => {
-    create('1');
+  it('shows 重設密碼 to Admins and reloads after a reset', () => {
+    const el = create('1');
+    const button = fixture.debugElement.query(By.directive(ResetPasswordButton));
+    expect(el.querySelector('[data-action="reset-password"]')).not.toBeNull();
+    service.getById.calls.reset();
+
+    (button.componentInstance as ResetPasswordButton).reset.emit();
+
+    expect(service.getById).toHaveBeenCalledOnceWith(1);
+  });
+
+  it('hides 重設密碼 from non-Admins', () => {
+    isAdmin.set(false);
+    const el = create('1');
+    expect(el.querySelector('[data-action="reset-password"]')).toBeNull();
+  });
+
+  // ---------- Agent token ----------
+
+  const acceptConfirm = () =>
     spyOn(confirmation, 'confirm').and.callFake((c: Confirmation) => {
       c.accept?.();
       return confirmation;
     });
-    const add = spyOn(messages, 'add');
-    service.getById.calls.reset();
 
-    fixture.componentInstance.confirmResetPassword();
+  it('shows the agent token status and hides revoke without a token', () => {
+    const el = create();
+    expect(text(el, 'hasAgentToken')).toBe('未設定');
+    expect(el.querySelector('[data-action="revoke-agent-token"]')).toBeNull();
 
-    expect(service.resetPassword).toHaveBeenCalledOnceWith(1);
-    expect(add).toHaveBeenCalledWith(jasmine.objectContaining({ severity: 'success' }));
-    expect(service.getById).toHaveBeenCalledTimes(1);
+    service.getById.and.returnValue(of({ ...user, hasAgentToken: true }));
+    const el2 = create();
+    expect(text(el2, 'hasAgentToken')).toBe('已設定');
+    expect(el2.querySelector('[data-action="revoke-agent-token"]')).not.toBeNull();
   });
 
-  it('confirmResetPassword() does nothing when rejected', () => {
+  it('regenerating without an existing token skips the confirm and shows the token once', () => {
     create('1');
-    spyOn(confirmation, 'confirm').and.callFake((c: Confirmation) => {
+    const confirm = spyOn(confirmation, 'confirm');
+    service.getById.calls.reset();
+
+    fixture.componentInstance.confirmRegenerateAgentToken();
+    fixture.detectChanges();
+
+    expect(confirm).not.toHaveBeenCalled();
+    expect(service.regenerateAgentToken).toHaveBeenCalledOnceWith(1);
+    expect(service.getById).toHaveBeenCalledTimes(1);
+    const input = document.querySelector<HTMLInputElement>('[data-field="issuedToken"]');
+    expect(input?.value).toBe('cms_at_new');
+
+    fixture.componentInstance.closeTokenDialog();
+    fixture.detectChanges();
+    expect(fixture.componentInstance.issuedToken()).toBeNull();
+  });
+
+  it('regenerating an existing token asks for confirmation first', () => {
+    service.getById.and.returnValue(of({ ...user, hasAgentToken: true }));
+    create('1');
+    const confirm = spyOn(confirmation, 'confirm').and.callFake((c: Confirmation) => {
       c.reject?.();
       return confirmation;
     });
-    fixture.componentInstance.confirmResetPassword();
-    expect(service.resetPassword).not.toHaveBeenCalled();
+
+    fixture.componentInstance.confirmRegenerateAgentToken();
+
+    expect(confirm).toHaveBeenCalled();
+    expect(service.regenerateAgentToken).not.toHaveBeenCalled();
   });
 
-  it('shows the API message when reset fails', () => {
-    service.resetPassword.and.returnValue(
-      throwError(() => new HttpErrorResponse({ status: 500, error: { message: '系統設定 appConfig 缺少 defaultPassword' } })),
-    );
+  it('copyToken() writes the issued token to the clipboard', async () => {
     create('1');
-    spyOn(confirmation, 'confirm').and.callFake((c: Confirmation) => {
-      c.accept?.();
-      return confirmation;
-    });
+    fixture.componentInstance.issuedToken.set('cms_at_new');
+    const write = spyOn(navigator.clipboard, 'writeText').and.resolveTo();
     const add = spyOn(messages, 'add');
 
-    fixture.componentInstance.confirmResetPassword();
+    await fixture.componentInstance.copyToken();
 
-    expect(add).toHaveBeenCalledWith(
-      jasmine.objectContaining({ severity: 'error', detail: '系統設定 appConfig 缺少 defaultPassword' }),
+    expect(write).toHaveBeenCalledOnceWith('cms_at_new');
+    expect(add).toHaveBeenCalledWith(jasmine.objectContaining({ severity: 'success' }));
+  });
+
+  it('revoke clears the token after confirmation and reloads', () => {
+    service.getById.and.returnValue(of({ ...user, hasAgentToken: true }));
+    create('1');
+    acceptConfirm();
+    const add = spyOn(messages, 'add');
+
+    fixture.componentInstance.confirmRevokeAgentToken();
+
+    expect(service.revokeAgentToken).toHaveBeenCalledOnceWith(1);
+    expect(add).toHaveBeenCalledWith(jasmine.objectContaining({ severity: 'success' }));
+  });
+
+  it('shows the API message when regenerating fails', () => {
+    service.regenerateAgentToken.and.returnValue(
+      throwError(() => new HttpErrorResponse({ status: 404, error: { message: 'not here' } })),
     );
-    expect(fixture.componentInstance.resetting()).toBeFalse();
+    create('1');
+    const add = spyOn(messages, 'add');
+
+    fixture.componentInstance.confirmRegenerateAgentToken();
+
+    expect(add).toHaveBeenCalledWith(jasmine.objectContaining({ severity: 'error', detail: 'not here' }));
+    expect(fixture.componentInstance.issuedToken()).toBeNull();
+    expect(fixture.componentInstance.tokenBusy()).toBeFalse();
+  });
+
+  it('leaves the 5xx toast to the interceptor (no second toast) when regenerating fails', () => {
+    service.regenerateAgentToken.and.returnValue(
+      throwError(() => new HttpErrorResponse({ status: 500, error: { message: '系統發生未預期的錯誤，請稍後再試' } })),
+    );
+    create('1');
+    const add = spyOn(messages, 'add');
+
+    fixture.componentInstance.confirmRegenerateAgentToken();
+
+    expect(add).not.toHaveBeenCalledWith(jasmine.objectContaining({ severity: 'error' }));
+    expect(fixture.componentInstance.issuedToken()).toBeNull();
+    expect(fixture.componentInstance.tokenBusy()).toBeFalse();
+  });
+
+  it('shows the 異動紀錄 badge for this record in the page header', () => {
+    const el = create('1');
+    expect(el.querySelector('.page-header .start app-row-audit-badge')).not.toBeNull();
+    expect(TestBed.inject(RowAuditService).getHistory).toHaveBeenCalledOnceWith('AppUser', '1');
   });
 });

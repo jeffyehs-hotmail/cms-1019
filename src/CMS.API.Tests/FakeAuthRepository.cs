@@ -27,6 +27,9 @@ public class FakeAuthRepository : IAuthRepository
     public string? AppConfigValue { get; set; } =
         $$"""{ "defaultPassword": "x", "symmetricSecurityKey": "{{SigningKey}}", "enforcePasswordPolicy": true }""";
 
+    /// <summary>AppUser.PasswordUpdatedTime per UserId (NULL until changed), set by UpdatePasswordAsync.</summary>
+    public Dictionary<string, DateTime?> PasswordUpdatedTimes { get; } = new(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>Test access to the stored row (including the hash, which the API never returns).</summary>
     public LoginUser Find(string userId) => _users.Single(u => u.UserId == userId);
 
@@ -36,6 +39,37 @@ public class FakeAuthRepository : IAuthRepository
 
     public Task<IReadOnlyList<string>> GetRoleIdsAsync(string userId)
         => Task.FromResult<IReadOnlyList<string>>(_roles.TryGetValue(userId, out var r) ? r.Order().ToList() : []);
+
+    public Task<UserProfile?> GetProfileAsync(string userId)
+    {
+        var user = _users.FirstOrDefault(u => string.Equals(u.UserId, userId, StringComparison.OrdinalIgnoreCase));
+        if (user is null) return Task.FromResult<UserProfile?>(null);
+        var roleIds = _roles.TryGetValue(user.UserId, out var r) ? r : [];
+        return Task.FromResult<UserProfile?>(new UserProfile
+        {
+            UserId = user.UserId,
+            UserName = user.UserName,
+            Roles = FakeAppUserRepository.Roles
+                .Where(role => roleIds.Contains(role.RoleId, StringComparer.OrdinalIgnoreCase))
+                .OrderBy(role => role.RoleId).ToList(),
+        });
+    }
+
+    public Task<bool> UpdateUserNameAsync(string userId, string userName)
+    {
+        var user = _users.FirstOrDefault(u => string.Equals(u.UserId, userId, StringComparison.OrdinalIgnoreCase));
+        if (user is not null) user.UserName = userName;
+        return Task.FromResult(user is not null);
+    }
+
+    public Task<bool> UpdatePasswordAsync(string userId, string passwordHash, DateTime passwordUpdatedTime)
+    {
+        var user = _users.FirstOrDefault(u => string.Equals(u.UserId, userId, StringComparison.OrdinalIgnoreCase));
+        if (user is null) return Task.FromResult(false);
+        user.PasswordHash = passwordHash;
+        PasswordUpdatedTimes[user.UserId] = passwordUpdatedTime;
+        return Task.FromResult(true);
+    }
 
     public Task<string?> GetSysConfigValueAsync(string configKey)
         => Task.FromResult(configKey == PasswordHasher.AppConfigKey ? AppConfigValue : null);

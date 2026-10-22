@@ -1,6 +1,9 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json;
 using CMS.API.Models;
+using CMS.API.Security;
 
 namespace CMS.API.Tests;
 
@@ -166,6 +169,45 @@ public class AppRolesControllerTests : IDisposable
         Assert.Equal(HttpStatusCode.BadRequest, res.StatusCode);
     }
 
+    // ---------- Members ----------
+    // Regression: ISSUE-001 — unknown or case-duplicate member ids hit the AppUserRole FK / PK and returned 500.
+    // Found by /qa on 2026-10-22
+    // Report: .gstack/qa-reports/run-20261022T060024Z/qa-report-cms-2026-10-22.md
+
+    [Fact]
+    public async Task Create_UnknownMember_Returns400_AndCreatesNothing()
+    {
+        var res = await _client.PostAsJsonAsync(Url,
+            new AppRoleRequest { RoleId = "Auditor", RoleName = "Auditor", PermissionLevel = 80, UserIds = ["alice", "nobody"] });
+
+        Assert.Equal(HttpStatusCode.BadRequest, res.StatusCode);
+        Assert.Equal("使用者 nobody 不存在",
+            (await res.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("message").GetString());
+        Assert.False(await _factory.AppRoles.RoleIdExistsAsync("Auditor"));
+    }
+
+    [Fact]
+    public async Task Update_UnknownMember_Returns400_AndKeepsMembers()
+    {
+        var res = await _client.PutAsJsonAsync(Url,
+            new AppRoleRequest { Pkid = 2, RoleId = "User", RoleName = "User", PermissionLevel = 100, UserIds = ["carol", "nobody"] });
+
+        Assert.Equal(HttpStatusCode.BadRequest, res.StatusCode);
+        var role = await _client.GetFromJsonAsync<AppRole>($"{Url}/2");
+        Assert.Equal(["carol"], role!.Users.Select(u => u.UserId));
+    }
+
+    [Fact]
+    public async Task Create_MemberRepeatedInOtherCaseOrPadded_IsStoredOnce()
+    {
+        var res = await _client.PostAsJsonAsync(Url,
+            new AppRoleRequest { RoleId = "Auditor", RoleName = "Auditor", PermissionLevel = 80, UserIds = ["alice", "ALICE", " alice ", " "] });
+        var created = await res.Content.ReadFromJsonAsync<AppRole>();
+
+        Assert.Equal(HttpStatusCode.Created, res.StatusCode);
+        Assert.Equal(1, created!.UserCount);
+    }
+
     // ---------- Delete ----------
 
     [Fact]
@@ -175,6 +217,33 @@ public class AppRolesControllerTests : IDisposable
 
         Assert.Equal(HttpStatusCode.NoContent, res.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await _client.GetAsync($"{Url}/3")).StatusCode);
+    }
+
+    // ---------- Admin only ----------
+    // Regression: ISSUE-002 — any signed-in user could edit roles and their members, e.g. add itself to Admin.
+    // Found by /qa on 2026-10-21
+    // Report: .gstack/qa-reports/qa-report-cms-api-2026-10-21.md
+
+    [Theory]
+    [InlineData("GET", "", "User")]
+    [InlineData("POST", "/query", "User")]
+    [InlineData("GET", "/1", "User")]
+    [InlineData("POST", "", "User")]
+    [InlineData("PUT", "", "User")]
+    [InlineData("DELETE", "/3", "admin")]   // role match is exact
+    public async Task EveryAction_NonAdmin_Returns403WithMessage(string method, string path, string role)
+    {
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", CmsApiFactory.AccessToken("carol", "Carol", [role]));
+
+        var res = await client.SendAsync(
+            new HttpRequestMessage(new HttpMethod(method), Url + path) { Content = JsonContent.Create(new { }) });
+
+        Assert.Equal(HttpStatusCode.Forbidden, res.StatusCode);
+        Assert.Equal(JwtAuthentication.Forbidden,
+            (await res.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("message").GetString());
+        Assert.Equal(HttpStatusCode.OK, (await _client.GetAsync($"{Url}/3")).StatusCode);
     }
 
     // ---------- Infrastructure ----------

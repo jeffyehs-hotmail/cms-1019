@@ -1,0 +1,52 @@
+<button type="button" class="row-audit-badge" title="檢視異動紀錄" (click)="open()" data-row-audit-badge>
+  <i class="pi pi-history" aria-hidden="true"></i>
+  <span class="label">異動紀錄 History</span>
+  <span class="latest" data-row-audit-latest>
+    @if (latest(); as l) {
+      {{ l.actionType }} by {{ l.userName }} · {{ l.dateTime | date: 'yyyy-MM-dd HH:mm' }}
+    } @else if (failed()) {
+      無法載入
+    } @else if (rows()) {
+      尚無紀錄 No history
+    } @else {
+      載入中…
+    }
+  </span>
+</button>
+
+<p-dialog
+  header="異動紀錄 History"
+  [modal]="true"
+  [(visible)]="dialogVisible"
+  [dismissableMask]="true"
+  [style]="{ width: '56rem' }"
+  [breakpoints]="{ '960px': '95vw' }"
+  appendTo="body"
+>
+  @if (rows()?.length) {
+    <p-table [value]="rows()!" [scrollable]="true" scrollHeight="60vh" styleClass="p-datatable-sm" data-row-audit-table>
+      <ng-template #header>
+        <tr>
+          <th class="col-time">時間 DateTime</th>
+          <th>使用者 User</th>
+          <th>動作 Action</th>
+          <th>內容 Description</th>
+        </tr>
+      </ng-template>
+      <ng-template #body let-r>
+        <tr data-row-audit-row>
+          <td class="col-time">{{ r.dateTime | date: 'yyyy-MM-dd HH:mm:ss' }}</td>
+          <td>{{ r.userName }}</td>
+          <td>{{ r.actionType }}</td>
+          <td class="col-desc">{{ r.actionDesc }}</td>
+        </tr>
+      </ng-template>
+    </p-table>
+  } @else if (failed()) {
+    <p class="muted">無法載入異動紀錄。</p>
+  } @else if (rows()) {
+    <p class="muted" data-row-audit-empty>尚無異動紀錄 No history yet</p>
+  } @else {
+    <p class="muted">載入中…</p>
+  }
+</p-dialog>

@@ -2,6 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Router, provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
+import { RowAuditService } from '../../../core/components/row-audit-badge/row-audit.service';
 import { MessageService } from 'primeng/api';
 import { PublishStatus } from '../publish-status.model';
 import { PublishStatusService } from '../publish-status.service';
@@ -34,7 +35,7 @@ describe('PublishStatusDetail', () => {
 
     await TestBed.configureTestingModule({
       imports: [PublishStatusDetail],
-      providers: [provideRouter([]), MessageService, { provide: PublishStatusService, useValue: service }],
+      providers: [provideRouter([]), MessageService, { provide: PublishStatusService, useValue: service }, { provide: RowAuditService, useValue: jasmine.createSpyObj<RowAuditService>('RowAuditService', { getHistory: of([]) }) }],
     }).compileComponents();
   });
 
@@ -59,6 +60,23 @@ describe('PublishStatusDetail', () => {
     expect(el.querySelector('[data-field="description"]')).toBeNull();
   });
 
+  it('leaves the 5xx toast to the interceptor (no second toast) when loading fails', () => {
+    service.getById.and.returnValue(
+      throwError(() => new HttpErrorResponse({ status: 500, error: { message: '系統發生未預期的錯誤，請稍後再試' } })),
+    );
+    const add = spyOn(TestBed.inject(MessageService), 'add');
+    create('2');
+    expect(add).not.toHaveBeenCalledWith(jasmine.objectContaining({ severity: 'error' }));
+    expect(fixture.componentInstance.notFound()).toBeTrue();
+  });
+
+  it('toasts the API message when loading is refused (403 for a non-admin)', () => {
+    service.getById.and.returnValue(throwError(() => new HttpErrorResponse({ status: 403, error: { message: '權限不足，無法執行此操作' } })));
+    const add = spyOn(TestBed.inject(MessageService), 'add');
+    create('2');
+    expect(add).toHaveBeenCalledWith(jasmine.objectContaining({ severity: 'error', detail: '權限不足，無法執行此操作' }));
+  });
+
   it('edit() navigates to the edit page; back() to the list', () => {
     create('2');
     const router = TestBed.inject(Router);
@@ -69,5 +87,11 @@ describe('PublishStatusDetail', () => {
 
     fixture.componentInstance.back();
     expect(router.navigate).toHaveBeenCalledWith(['/publish-statuses']);
+  });
+
+  it('shows the 異動紀錄 badge for this record in the page header', () => {
+    const el = create('2');
+    expect(el.querySelector('.page-header .start app-row-audit-badge')).not.toBeNull();
+    expect(TestBed.inject(RowAuditService).getHistory).toHaveBeenCalledOnceWith('PublishStatus', '2');
   });
 });

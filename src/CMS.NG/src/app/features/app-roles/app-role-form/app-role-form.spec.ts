@@ -3,6 +3,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { Router, provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
+import { RowAuditService } from '../../../core/components/row-audit-badge/row-audit.service';
 import { MessageService } from 'primeng/api';
 import { LookupService } from '../../../core/services/lookup.service';
 import { AppRole } from '../app-role.model';
@@ -54,6 +55,7 @@ describe('AppRoleForm', () => {
         provideNoopAnimations(),
         MessageService,
         { provide: AppRoleService, useValue: service },
+        { provide: RowAuditService, useValue: jasmine.createSpyObj<RowAuditService>('RowAuditService', { getHistory: of([]) }) },
         { provide: LookupService, useValue: lookups },
       ],
     }).compileComponents();
@@ -132,6 +134,31 @@ describe('AppRoleForm', () => {
       expect(component.saving()).toBeFalse();
     });
 
+    it('shows the server message when a member does not exist (400)', () => {
+      service.create.and.returnValue(
+        throwError(() => new HttpErrorResponse({ status: 400, error: { message: "使用者 'zz' 不存在" } })),
+      );
+      const add = spyOn(messages, 'add');
+      component.form.patchValue({ roleId: 'R', roleName: 'x' });
+      component.save();
+
+      expect(add).toHaveBeenCalledWith(jasmine.objectContaining({ severity: 'error', detail: "使用者 'zz' 不存在" }));
+      expect(router.navigate).not.toHaveBeenCalled();
+    });
+
+    it('leaves the 5xx toast to the interceptor (no second toast) when saving fails', () => {
+      service.create.and.returnValue(
+        throwError(() => new HttpErrorResponse({ status: 500, error: { message: '系統發生未預期的錯誤，請稍後再試' } })),
+      );
+      const add = spyOn(messages, 'add');
+      component.form.patchValue({ roleId: 'Admin', roleName: 'x' });
+      component.save();
+
+      expect(add).not.toHaveBeenCalledWith(jasmine.objectContaining({ severity: 'error' }));
+      expect(router.navigate).not.toHaveBeenCalled();
+      expect(component.saving()).toBeFalse();
+    });
+
     it('cancel() returns to the list', () => {
       component.cancel();
       expect(router.navigate).toHaveBeenCalledWith(['/app-roles']);
@@ -180,5 +207,15 @@ describe('AppRoleForm', () => {
       component.cancel();
       expect(router.navigate).toHaveBeenCalledWith(['/app-roles', '1']);
     });
+  });
+
+  it('shows the 異動紀錄 badge only when editing an existing record', () => {
+    create();
+    expect(fixture.nativeElement.querySelector('app-row-audit-badge')).toBeNull();
+    fixture.destroy();
+
+    create('1');
+    expect(fixture.nativeElement.querySelector('.page-header .start app-row-audit-badge')).not.toBeNull();
+    expect(TestBed.inject(RowAuditService).getHistory).toHaveBeenCalledOnceWith('AppRole', '1');
   });
 });

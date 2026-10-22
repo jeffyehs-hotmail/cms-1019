@@ -1,50 +1,43 @@
 # CLAUDE.md
 
-Full-stack CMS: .NET 9 Web API (Dapper) + Angular 20 (standalone, PrimeNG 20) over an existing SQL Server database. UI text is Traditional Chinese. This file is an index; the details live in `docs/claude/`.
+Full-stack CMS: .NET 9 Web API (Dapper) + Angular 20 (standalone, PrimeNG 20) over an existing SQL Server DB, plus a Node Claude Code hook in `tools/token-report/`. UI text is Traditional Chinese.
 
-## Reference docs (read before the matching work)
+## Read before the matching work
 
-| File | Read when |
+| File | When |
 |---|---|
-| `docs/claude/workspace.md` | Running or smoke-testing the apps, querying the DB, finding specs, tool quirks |
-| `docs/claude/backend.md` | Adding/changing API code or backend tests |
-| `docs/claude/frontend.md` | Adding/changing UI or Angular tests (lists, forms, in-place editing, pinned toolbar, custom pages, specs) |
-| `docs/claude/features.md` | Changing an existing feature or one FK-related to it: per-table decisions, live-data facts, deferred work |
-| `spec/code-gen.convention.md` | Scaffolding a new feature with `/crud` (plus the three above) |
+| `docs/claude/workspace.md` | Running/smoke-testing the apps, DB queries, specs, tool quirks |
+| `docs/claude/backend.md` | API code, backend tests, auth/roles, row audit, exceptions, DB schema |
+| `docs/claude/frontend.md` | UI or Angular tests: lists, forms, toolbars, custom pages, shared components, auth/menu, error toasts |
+| `docs/claude/features.md` | A feature or one FK-related to it: AppRole, AppUser, Auth/login, My Profile, PublishStatus, Partner, CourseGroup, Course, FeaturedPromoItem, AgentTokenUsage, RowAudit history |
+| `tools/token-report/README.md` | The token-usage SessionEnd hook |
+| `spec/code-gen.convention.md` | Scaffolding with `/crud` |
 
 ## Commands
 
 ```sh
-cd src && dotnet run --project CMS.API      # http://localhost:5000, Swagger at /swagger
-cd src && dotnet test
-cd src/CMS.NG && npm start                  # http://localhost:4200
-cd src/CMS.NG && npm run test:ci            # headless Karma, single run
-cd src/CMS.NG && npx ng build               # production build (checks budgets)
+cd src && dotnet run --project CMS.API         # :5000, Swagger at /swagger
+cd src && dotnet test --artifacts-path <temp>  # row-audit tests need .\SQLEXPRESS
+cd src/CMS.NG && npm start                     # :4200
+cd src/CMS.NG && npm run test:ci               # headless Karma
+cd src/CMS.NG && npx ng build                  # checks budgets
+cd tools/token-report && node --test
 ```
 
-## Conventions
+## Rules (every feature)
 
-- Backend per table: `Models/{Table}.cs` + `{Table}Request.cs` + `{Table}Query.cs` → `Repositories/I{Table}Repository` + impl (Dapper, async) → DI in `Program.cs` → `Controllers/{Table}sController` at `api/{kebab-plural}`; lookups at `api/lookups/{kebab-plural}`. JSON is camelCase.
-- Frontend per table: `src/app/features/{kebab-plural}/` with list/detail/form folders, `{table}.model.ts`, `{table}.service.ts`. No `.component` suffix. Signals, `inject()`, `@if`/`@for`. Lazy routes in `app.routes.ts`; sidebar in `navGroups` (`app.ts`). Shared UI in `core/components/`.
-- 409, business-rule 400 and auth 401 responses carry `{ message }` (Traditional Chinese); the frontend toasts it. Login failures use one generic 401 message whatever the reason.
-- Tests are always written: backend via `CmsApiFactory` with in-memory fakes (no Moq, no DB); frontend Jasmine specs next to each file.
-- When `/crud` disagrees with this repo (`core/models` paths, Moq, `RowAuditWriter`/`RowAuditBadgeComponent`), follow this repo. After building a feature, add notes to `docs/claude/features.md` and a row below.
+- Tests with every change: backend via `CmsApiFactory` + in-memory fakes, Angular specs beside each file, `tools/` via `node --test`.
+- Auth on by default: endpoints need a login JWT, routes sit under the guarded `''` parent, role limits = `[Authorize(Roles = …)]` + hidden UI. An `adminOnly` menu item still needs the API attribute (hiding protects nothing).
+- Row audit: every repository Insert/Update/Delete logs through `RowAuditWriter` on the write's own transaction; every detail page and edit form shows `<app-row-audit-badge>`.
+- Errors: never catch unexpected exceptions (`UnhandledExceptionMiddleware` returns a safe 500); expected 400/401/403/409 return a Traditional Chinese `{ message }`. Each `error:` callback guards its toast with `!isServerError(err)` and its spec gets a 500 case.
+- Where `/crud` disagrees with the repo, follow the repo. After changing a feature, update `features.md`.
+- This file is an index (≤3 KB): new facts go in one `docs/claude/*.md` file, never here.
 
-## Features
+## Gotchas (`workspace.md`)
 
-| Feature | Menu | Key facts |
-|---|---|---|
-| AppRole | 系統管理 › 角色 | string PK `RoleId` + `pkid` route key; n-n users |
-| AppUser | 系統管理 › 使用者 | string PK `UserId`; `PasswordHash` backend-only; reset-password endpoint; n-n roles |
-| Auth | (API only) | `POST api/auth/login` → profile + 24h HS256 JWT, key from SysConfig appConfig; exact UserId, generic 401 |
-| PublishStatus | 系統管理 › 發布狀態 | tinyint non-IDENTITY PK |
-| Partner | 課程管理 › 原廠 | smallint IDENTITY; 5 child counts incl. Seminar (no FK) |
-| CourseGroup | 課程管理 › 課程群組 | smallint IDENTITY; minimal template |
-| Course | 課程管理 › 課程 | FKs + n-n + long texts + CourseRecomm string-key children; QR code; list in-place editing; pinned form toolbar |
-| FeaturedPromoItem | 首頁 › 上稿作業 | custom UI from `spec/custom/`: week grid per training center, 3 slots/day, copy/paste, slot swap |
+- :5000 and :4200 run old code: leave them up, build/test into a temp `--artifacts-path`, smoke-test on :5099 with a temporary `ZZ…` user.
+- No Python. Use the Write tool, or a single-quoted `node -e '…'` for small edits.
 
-## Must-know gotchas (details in `workspace.md`)
+## Agent skills
 
-- An API on :5000 and `npm start` on :4200 are usually already running with old API code: don't kill them; build/test with `--artifacts-path <temp>` and smoke-test a second API copy on :5099.
-- Smoke tests write real DB rows: use `ZZ…` keys / 2099 dates and delete them (and side-table rows) afterwards.
-- No Python; write source with the Write tool, script small edits with single-quoted `node -e '…'`.
+Issues: GitHub `jeffyehs-hotmail/cms-1019` via `gh`. Tracker, triage labels and domain docs (`GLOSSARY.md`, `docs/adr/`): `docs/agents/`.

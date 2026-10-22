@@ -1,0 +1,13 @@
+{
+  "name": "token-report",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Claude Code SessionEnd hook that reports token usage to the CMS API (系統管理 › Token 用量)",
+  "main": "report.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node --test"
+  }
+}

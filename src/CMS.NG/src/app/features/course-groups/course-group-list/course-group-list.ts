@@ -12,6 +12,7 @@ import { BadgeModule } from 'primeng/badge';
 import { readSession, writeSession } from '../../../core/utils/session-state';
 import { CourseGroup, CourseGroupQuery } from '../course-group.model';
 import { CourseGroupService } from '../course-group.service';
+import { isServerError } from '../../../core/utils/server-error';
 
 export const FILTERS_KEY = 'course-group-list-filters';
 export const SORT_KEY = 'course-group-list-sort';
@@ -71,9 +72,11 @@ export class CourseGroupList implements OnInit {
         this.courseGroups.set(rows);
         this.loading.set(false);
       },
-      error: () => {
+      error: (err: unknown) => {
         this.loading.set(false);
-        this.messages.add({ severity: 'error', summary: '錯誤', detail: '無法載入課程群組資料' });
+        if (!isServerError(err)) {
+          this.messages.add({ severity: 'error', summary: '錯誤', detail: '無法載入課程群組資料' });
+        }
       },
     });
   }
@@ -143,7 +146,7 @@ export class CourseGroupList implements OnInit {
       },
       error: (err: HttpErrorResponse) => {
         const detail = err.status === 409 ? (err.error?.message ?? '使用中，無法刪除') : '刪除失敗';
-        this.messages.add({ severity: 'error', summary: '錯誤', detail });
+        if (!isServerError(err)) this.messages.add({ severity: 'error', summary: '錯誤', detail });
       },
     });
   }

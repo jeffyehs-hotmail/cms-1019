@@ -1,54 +1,82 @@
-<div class="layout" [class.collapsed]="collapsed()">
-  <aside class="sidebar">
-    <div class="brand">
-      <span class="brand-name">CMS</span>
-      <button
-        type="button"
-        class="collapse-btn"
-        (click)="toggleSidebar()"
-        [attr.aria-label]="collapsed() ? '展開選單' : '收合選單'"
-      >
-        <i class="pi" [class.pi-chevron-left]="!collapsed()" [class.pi-chevron-right]="collapsed()"></i>
-      </button>
-    </div>
-
-    <nav class="nav">
-      @for (group of navGroups; track group.label) {
+@if (auth.profile()) {
+  <div class="layout" [class.collapsed]="collapsed()">
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brand-name">CMS</span>
         <button
           type="button"
-          class="nav-group"
-          (click)="toggleGroup(group.label)"
-          [attr.aria-expanded]="openGroups().has(group.label)"
-          [title]="group.label"
+          class="collapse-btn"
+          (click)="toggleSidebar()"
+          [attr.aria-label]="collapsed() ? '展開選單' : '收合選單'"
         >
-          <i [class]="group.icon"></i>
-          <span class="nav-label">{{ group.label }}</span>
-          <i
-            class="pi chevron"
-            [class.pi-chevron-down]="openGroups().has(group.label)"
-            [class.pi-chevron-right]="!openGroups().has(group.label)"
-          ></i>
+          <i class="pi" [class.pi-chevron-left]="!collapsed()" [class.pi-chevron-right]="collapsed()"></i>
         </button>
-        @if (openGroups().has(group.label)) {
-          <ul class="nav-items">
-            @for (item of group.items; track item.route) {
-              <li>
-                <a [routerLink]="item.route" routerLinkActive="active" [title]="item.label">
-                  <i [class]="item.icon"></i>
-                  <span class="nav-label">{{ item.label }}</span>
-                </a>
-              </li>
-            }
-          </ul>
-        }
-      }
-    </nav>
-  </aside>
+      </div>
 
-  <main class="content">
-    <router-outlet />
-  </main>
-</div>
+      <nav class="nav">
+        @for (group of visibleNavGroups(); track group.label) {
+          <button
+            type="button"
+            class="nav-group"
+            (click)="toggleGroup(group.label)"
+            [attr.aria-expanded]="openGroups().has(group.label)"
+            [title]="group.label"
+          >
+            <i [class]="group.icon"></i>
+            <span class="nav-label">{{ group.label }}</span>
+            <i
+              class="pi chevron"
+              [class.pi-chevron-down]="openGroups().has(group.label)"
+              [class.pi-chevron-right]="!openGroups().has(group.label)"
+            ></i>
+          </button>
+          @if (openGroups().has(group.label)) {
+            <ul class="nav-items">
+              @for (item of group.items; track item.route) {
+                <li>
+                  <a [routerLink]="item.route" routerLinkActive="active" [title]="item.label">
+                    <i [class]="item.icon"></i>
+                    <span class="nav-label">{{ item.label }}</span>
+                  </a>
+                </li>
+              }
+            </ul>
+          }
+        }
+      </nav>
+    </aside>
+
+    <div class="main">
+      <header class="topbar">
+        <a
+          class="user-name"
+          routerLink="/profile"
+          routerLinkActive="active"
+          [title]="'我的個人資料 (' + (auth.profile()?.userId ?? '') + ')'"
+        >
+          <i class="pi pi-user"></i>
+          {{ auth.userName() }}
+        </a>
+        <p-button
+          label="登出"
+          icon="pi pi-sign-out"
+          severity="secondary"
+          size="small"
+          [text]="true"
+          styleClass="logout-btn"
+          (onClick)="logout()"
+        />
+      </header>
+
+      <main class="content">
+        <router-outlet />
+      </main>
+    </div>
+  </div>
+} @else {
+  <!-- Signed out: only the public login page, without the shell. -->
+  <router-outlet />
+}
 
 <p-toast position="top-right" />
 <p-confirmDialog />

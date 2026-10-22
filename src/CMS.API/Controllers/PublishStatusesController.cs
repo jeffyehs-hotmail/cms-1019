@@ -1,11 +1,14 @@
 using CMS.API.Models;
 using CMS.API.Repositories;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CMS.API.Controllers;
 
+/// <summary>Admin role only (403 otherwise): the screen sits in the adminOnly 系統管理 menu. Lookups stay open.</summary>
 [ApiController]
 [Route("api/publish-statuses")]
+[Authorize(Roles = AppUsersController.AdminRole)]
 public class PublishStatusesController(IPublishStatusRepository repo) : ControllerBase
 {
     [HttpGet]

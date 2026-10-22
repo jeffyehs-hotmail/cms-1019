@@ -5,8 +5,10 @@ using Dapper;
 
 namespace CMS.API.Repositories;
 
-public class FeaturedPromoItemRepository(IDbConnectionFactory db) : IFeaturedPromoItemRepository
+public class FeaturedPromoItemRepository(IDbConnectionFactory db, RowAuditWriter audit) : IFeaturedPromoItemRepository
 {
+    private const string Table = "FeaturedPromoItem";
+
     private const string SelectSql = """
         SELECT f.pkid, f.ScheduleOn, f.TrainingCenter_pkid AS TrainingCenterPkid, t.Name AS TrainingCenterName,
                f.Slot, f.Promotion_pkid AS PromotionPkid, p.PromoCode, f.Topic, f.Description
@@ -61,29 +63,52 @@ public class FeaturedPromoItemRepository(IDbConnectionFactory db) : IFeaturedPro
     public async Task<int> CreateAsync(FeaturedPromoItemRequest request)
     {
         using var conn = await db.OpenAsync();
-        return await conn.ExecuteScalarAsync<int>("""
+        using var tx = conn.BeginTransaction();
+
+        var pkid = await conn.ExecuteScalarAsync<int>("""
             INSERT INTO FeaturedPromoItem (ScheduleOn, TrainingCenter_pkid, Slot, Promotion_pkid, Topic, Description)
             VALUES (@ScheduleOn, @TrainingCenterPkid, @Slot, @PromotionPkid, @Topic, @Description);
             SELECT CAST(SCOPE_IDENTITY() AS int);
-            """, ToParams(request));
+            """, ToParams(request), tx);
+
+        await audit.LogInsertAsync(Table, (await RowAuditWriter.LoadRowAsync(tx, Table, pkid))!, tx);
+        tx.Commit();
+        return pkid;
     }
 
     public async Task<bool> UpdateAsync(FeaturedPromoItemRequest request)
     {
         using var conn = await db.OpenAsync();
-        var rows = await conn.ExecuteAsync("""
+        using var tx = conn.BeginTransaction();
+
+        var before = await RowAuditWriter.LoadRowAsync(tx, Table, request.Pkid);
+        if (before is null) return false;
+
+        await conn.ExecuteAsync("""
             UPDATE FeaturedPromoItem
             SET ScheduleOn = @ScheduleOn, TrainingCenter_pkid = @TrainingCenterPkid, Slot = @Slot,
                 Promotion_pkid = @PromotionPkid, Topic = @Topic, Description = @Description
             WHERE pkid = @Pkid
-            """, ToParams(request));
-        return rows > 0;
+            """, ToParams(request), tx);
+
+        await audit.LogUpdateAsync(Table, before, (await RowAuditWriter.LoadRowAsync(tx, Table, request.Pkid))!, tx);
+        tx.Commit();
+        return true;
     }
 
     public async Task<bool> DeleteAsync(int pkid)
     {
         using var conn = await db.OpenAsync();
-        return await conn.ExecuteAsync("DELETE FROM FeaturedPromoItem WHERE pkid = @pkid", new { pkid }) > 0;
+        using var tx = conn.BeginTransaction();
+
+        var row = await RowAuditWriter.LoadRowAsync(tx, Table, pkid);
+        if (row is null) return false;
+
+        await conn.ExecuteAsync("DELETE FROM FeaturedPromoItem WHERE pkid = @pkid", new { pkid }, tx);
+
+        await audit.LogDeleteAsync(Table, row, tx);
+        tx.Commit();
+        return true;
     }
 
     public async Task<bool> MoveAsync(int pkid, byte targetSlot)

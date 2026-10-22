@@ -2,6 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Router, provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
+import { RowAuditService } from '../../../core/components/row-audit-badge/row-audit.service';
 import { MessageService } from 'primeng/api';
 import { AppRole } from '../app-role.model';
 import { AppRoleService } from '../app-role.service';
@@ -37,7 +38,7 @@ describe('AppRoleDetail', () => {
 
     await TestBed.configureTestingModule({
       imports: [AppRoleDetail],
-      providers: [provideRouter([]), MessageService, { provide: AppRoleService, useValue: service }],
+      providers: [provideRouter([]), MessageService, { provide: AppRoleService, useValue: service }, { provide: RowAuditService, useValue: jasmine.createSpyObj<RowAuditService>('RowAuditService', { getHistory: of([]) }) }],
     }).compileComponents();
   });
 
@@ -72,6 +73,26 @@ describe('AppRoleDetail', () => {
     expect(el.querySelector('[data-field="roleId"]')).toBeNull();
   });
 
+  // Regression: ISSUE-002 — load errors toasted a fixed text instead of the API 403 message.
+  // Found by /qa on 2026-10-22
+  // Report: .gstack/qa-reports/run-20261022T060024Z/qa-report-cms-2026-10-22.md
+  it('toasts the API message when loading is refused (403 for a non-admin)', () => {
+    service.getById.and.returnValue(throwError(() => new HttpErrorResponse({ status: 403, error: { message: '權限不足，無法執行此操作' } })));
+    const add = spyOn(TestBed.inject(MessageService), 'add');
+    create('1');
+    expect(add).toHaveBeenCalledWith(jasmine.objectContaining({ severity: 'error', detail: '權限不足，無法執行此操作' }));
+  });
+
+  it('leaves the 5xx toast to the interceptor (no second toast) when loading fails', () => {
+    service.getById.and.returnValue(
+      throwError(() => new HttpErrorResponse({ status: 500, error: { message: '系統發生未預期的錯誤，請稍後再試' } })),
+    );
+    const add = spyOn(TestBed.inject(MessageService), 'add');
+    create('1');
+    expect(add).not.toHaveBeenCalledWith(jasmine.objectContaining({ severity: 'error' }));
+    expect(fixture.componentInstance.notFound()).toBeTrue();
+  });
+
   it('edit() navigates to the edit page; back() to the list', () => {
     create('1');
     const router = TestBed.inject(Router);
@@ -82,5 +103,11 @@ describe('AppRoleDetail', () => {
 
     fixture.componentInstance.back();
     expect(router.navigate).toHaveBeenCalledWith(['/app-roles']);
+  });
+
+  it('shows the 異動紀錄 badge for this record in the page header', () => {
+    const el = create('1');
+    expect(el.querySelector('.page-header .start app-row-audit-badge')).not.toBeNull();
+    expect(TestBed.inject(RowAuditService).getHistory).toHaveBeenCalledOnceWith('AppRole', '1');
   });
 });

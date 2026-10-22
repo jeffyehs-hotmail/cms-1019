@@ -15,16 +15,12 @@ Read this before running or smoke-testing the apps, querying the DB, or looking 
 | `src/CMS.sln`, `src/global.json` | Solution; `global.json` pins the .NET 9 SDK (machine default is 10) |
 | `src/CMS.API`, `src/CMS.API.Tests`, `src/CMS.NG` | Web API, xUnit tests, Angular app |
 | `docs/claude/*.md` | These reference docs; `CLAUDE.md` is only the index |
+| `tools/token-report/` | Claude Code SessionEnd hook (Node, no deps) that reports token usage to the API; install and behaviour in its `README.md` |
+| `docs/agents/` | Issue tracker, triage labels and domain-doc conventions for the engineering skills |
 
-## Commands
+## Running
 
-```sh
-cd src && dotnet run --project CMS.API      # http://localhost:5000, Swagger at /swagger
-cd src && dotnet test
-cd src/CMS.NG && npm start                  # http://localhost:4200
-cd src/CMS.NG && npm run test:ci            # headless Karma, single run
-cd src/CMS.NG && npx ng build               # production build (checks budgets)
-```
+Commands are in `CLAUDE.md`.
 
 - The Angular app calls `http://localhost:5000` directly (`src/environments/environment*.ts`, no dev proxy).
 - The user often leaves `dotnet run` (API on :5000) and `npm start` (:4200) running between sessions, usually with old API code. Don't kill them. `npm start` hot-reloads frontend changes; the API does not.
@@ -40,6 +36,7 @@ cd src/CMS.NG && npx ng build               # production build (checks budgets)
 
 - A running `dotnet run` locks `CMS.API/bin` (MSB3027). Build and test into a temp folder: `dotnet test --artifacts-path <temp>`.
 - Smoke-test new API code with a second copy on another port: `dotnet run --project CMS.API --artifacts-path <temp> --urls http://localhost:5099`.
+- Every Claude Code session end on this machine runs the token-report hook (user `~/.claude/settings.json`) against :5000. Reports wait in `~/.claude/token-report/outbox/` until :5000 accepts them; to send them sooner, point `~/.claude/token-report.json` at the :5099 copy, run `node tools/token-report/report.js --backfill`, then point it back. An empty outbox means :5000 is accepting reports, so a backfill can go straight there.
 - `curl -d` mis-encodes Chinese on this machine, so send ASCII payloads.
 
 ## Smoke-test hygiene
@@ -47,7 +44,8 @@ cd src/CMS.NG && npx ng build               # production build (checks budgets)
 Smoke tests write real rows into the live `CMS` database.
 
 - Use ASCII `ZZ…`/`zz…` keys for string-keyed tables and far-future dates (e.g. 2099) for date-keyed ones (FeaturedPromoItem: training center 54).
-- Login (`POST api/auth/login`): real passwords are unknown, so insert temporary `ZZ…` `AppUser` rows with `PasswordHash` = lowercase hex SHA-256 of a test password (`node -e` + `crypto`) plus `AppUserRole` rows, then delete both.
+- Login (`POST api/auth/login`): real passwords are unknown, so insert temporary `ZZ…` `AppUser` rows with `PasswordHash` = lowercase hex SHA-256 of a test password (`node -e` + `crypto`) plus `AppUserRole` rows (`Admin` for the full menu), then delete both. **Every other endpoint needs this token** (except agent-token ingest, which takes a `cms_at_` token): `T=$(curl -s -H 'Content-Type: application/json' -d '{"userId":"ZZadmin","password":"…"}' $B/auth/login | jq -r .accessToken)`, then `-H "Authorization: Bearer $T"`. Without it the API returns 401 `{ message: "請先登入" }`.
+- Browser checks against :4200 need a login too; the `ZZ` user works there, as long as :5000 runs the auth code.
 - Delete the rows afterwards and verify with sqlcmd, including side tables (`CourseRecomm`, `AppUserRole`, `CourseInCertification`, `CourseJobCategories`) and temporary values (FeaturedPromoItem `Slot = 0`).
 
 ## Tooling quirks

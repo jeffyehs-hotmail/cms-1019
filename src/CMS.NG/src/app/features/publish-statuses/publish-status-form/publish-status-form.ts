@@ -7,12 +7,14 @@ import { ButtonModule } from 'primeng/button';
 import { CheckboxModule } from 'primeng/checkbox';
 import { InputNumberModule } from 'primeng/inputnumber';
 import { InputTextModule } from 'primeng/inputtext';
+import { RowAuditBadge } from '../../../core/components/row-audit-badge/row-audit-badge';
 import { PublishStatus, PublishStatusRequest } from '../publish-status.model';
 import { PublishStatusService } from '../publish-status.service';
+import { errorMessage, isServerError } from '../../../core/utils/server-error';
 
 @Component({
   selector: 'app-publish-status-form',
-  imports: [ReactiveFormsModule, ButtonModule, CheckboxModule, InputNumberModule, InputTextModule],
+  imports: [ReactiveFormsModule, ButtonModule, CheckboxModule, InputNumberModule, InputTextModule, RowAuditBadge],
   templateUrl: './publish-status-form.html',
   styleUrl: './publish-status-form.scss',
 })
@@ -43,7 +45,9 @@ export class PublishStatusForm implements OnInit {
     this.form.controls.pkid.disable();
     this.service.getById(Number(this.id())).subscribe({
       next: (status) => this.patch(status),
-      error: () => this.messages.add({ severity: 'error', summary: '錯誤', detail: '無法載入資料' }),
+      error: (err: unknown) => {
+        if (!isServerError(err)) this.messages.add({ severity: 'error', summary: '錯誤', detail: errorMessage(err, '無法載入資料') });
+      },
     });
   }
 
@@ -88,7 +92,7 @@ export class PublishStatusForm implements OnInit {
       error: (err: HttpErrorResponse) => {
         this.saving.set(false);
         const detail = err.status === 409 ? (err.error?.message ?? '主代碼已存在') : '儲存失敗';
-        this.messages.add({ severity: 'error', summary: '錯誤', detail });
+        if (!isServerError(err)) this.messages.add({ severity: 'error', summary: '錯誤', detail });
       },
     });
   }

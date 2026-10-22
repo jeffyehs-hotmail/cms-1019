@@ -1,14 +1,19 @@
 using CMS.API.Models;
 using CMS.API.Repositories;
 using CMS.API.Security;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CMS.API.Controllers;
 
+/// <summary>Admin role only (403 otherwise): otherwise a signed-in user could grant itself Admin or take over agent tokens.</summary>
 [ApiController]
 [Route("api/app-users")]
+[Authorize(Roles = AdminRole)]
 public class AppUsersController(IAppUserRepository repo) : ControllerBase
 {
+    public const string AdminRole = "Admin";
+
     [HttpGet]
     public async Task<ActionResult<IEnumerable<AppUser>>> GetAll()
         => Ok(await repo.GetAllAsync());
@@ -50,7 +55,11 @@ public class AppUsersController(IAppUserRepository repo) : ControllerBase
         return Ok(await repo.GetByIdAsync(request.Pkid));
     }
 
-    /// <summary>Resets the password to SysConfig appConfig.defaultPassword.</summary>
+    /// <summary>
+    /// Resets the password to SHA-256(SysConfig appConfig.defaultPassword) with PasswordUpdatedTime = NULL, which marks
+    /// the account as on the default password again (spec/auth/AppUser.md; RowAudit keeps when and by whom).
+    /// The response carries no password or hash.
+    /// </summary>
     [HttpPost("{id:int}/reset-password")]
     public async Task<IActionResult> ResetPassword(int id)
     {
@@ -62,9 +71,29 @@ public class AppUsersController(IAppUserRepository repo) : ControllerBase
         return await repo.ResetPasswordAsync(id, hash) ? NoContent() : NotFound();
     }
 
+    /// <summary>Issues a new agent token (the old one stops working). The plain token is returned only here.</summary>
+    [HttpPost("{id:int}/regenerate-agent-token")]
+    public async Task<ActionResult<AgentTokenResponse>> RegenerateAgentToken(int id)
+    {
+        var token = AgentTokenHasher.Generate();
+        return await repo.SetAgentTokenHashAsync(id, AgentTokenHasher.Hash(token))
+            ? Ok(new AgentTokenResponse { Token = token })
+            : NotFound();
+    }
+
+    [HttpPost("{id:int}/revoke-agent-token")]
+    public async Task<IActionResult> RevokeAgentToken(int id)
+        => await repo.SetAgentTokenHashAsync(id, null) ? NoContent() : NotFound();
+
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
-        => await repo.DeleteAsync(id) ? NoContent() : NotFound();
+    {
+        var user = await repo.GetByIdAsync(id);
+        if (user is null) return NotFound();
+        if (user.AgentTokenUsageCount > 0)
+            return Conflict(new { message = $"使用者 '{user.UserId}' 已有 {user.AgentTokenUsageCount} 筆 Token 用量紀錄，無法刪除" });
+        return await repo.DeleteAsync(id) ? NoContent() : NotFound();
+    }
 
     private static void Normalize(AppUserRequest r)
     {

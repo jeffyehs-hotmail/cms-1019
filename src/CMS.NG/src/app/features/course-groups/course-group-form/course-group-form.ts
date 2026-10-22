@@ -5,12 +5,14 @@ import { Router } from '@angular/router';
 import { MessageService } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
+import { RowAuditBadge } from '../../../core/components/row-audit-badge/row-audit-badge';
 import { CourseGroupRequest } from '../course-group.model';
 import { CourseGroupService } from '../course-group.service';
+import { isServerError } from '../../../core/utils/server-error';
 
 @Component({
   selector: 'app-course-group-form',
-  imports: [ReactiveFormsModule, ButtonModule, InputTextModule],
+  imports: [ReactiveFormsModule, ButtonModule, InputTextModule, RowAuditBadge],
   templateUrl: './course-group-form.html',
 })
 export class CourseGroupForm implements OnInit {
@@ -35,7 +37,9 @@ export class CourseGroupForm implements OnInit {
 
     this.service.getById(Number(this.id())).subscribe({
       next: (group) => this.form.patchValue({ description: group.description }),
-      error: () => this.messages.add({ severity: 'error', summary: '錯誤', detail: '無法載入資料' }),
+      error: (err: unknown) => {
+        if (!isServerError(err)) this.messages.add({ severity: 'error', summary: '錯誤', detail: '無法載入資料' });
+      },
     });
   }
 
@@ -72,7 +76,7 @@ export class CourseGroupForm implements OnInit {
       error: (err: HttpErrorResponse) => {
         this.saving.set(false);
         const detail = err.status === 409 ? (err.error?.message ?? '儲存失敗') : '儲存失敗';
-        this.messages.add({ severity: 'error', summary: '錯誤', detail });
+        if (!isServerError(err)) this.messages.add({ severity: 'error', summary: '錯誤', detail });
       },
     });
   }

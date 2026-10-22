@@ -9,8 +9,11 @@ import { InputTextModule } from 'primeng/inputtext';
 import { MultiSelectModule } from 'primeng/multiselect';
 import { ToggleSwitchModule } from 'primeng/toggleswitch';
 import { LookupService } from '../../../core/services/lookup.service';
+import { RowAuditBadge } from '../../../core/components/row-audit-badge/row-audit-badge';
 import { AppUser, AppUserRequest } from '../app-user.model';
 import { AppUserService } from '../app-user.service';
+import { ResetPasswordButton } from '../reset-password-button/reset-password-button';
+import { errorMessage, isServerError } from '../../../core/utils/server-error';
 
 interface RoleOption {
   roleId: string;
@@ -22,7 +25,7 @@ const NOT_BLANK = Validators.pattern(/\S/);
 
 @Component({
   selector: 'app-app-user-form',
-  imports: [ReactiveFormsModule, ButtonModule, InputTextModule, MultiSelectModule, ToggleSwitchModule],
+  imports: [ReactiveFormsModule, ButtonModule, InputTextModule, MultiSelectModule, ToggleSwitchModule, ResetPasswordButton, RowAuditBadge],
   templateUrl: './app-user-form.html',
 })
 export class AppUserForm implements OnInit {
@@ -38,6 +41,8 @@ export class AppUserForm implements OnInit {
   readonly isEdit = computed(() => !!this.id());
   readonly roleOptions = signal<RoleOption[]>([]);
   readonly saving = signal(false);
+  /** The user being edited, once loaded (edit mode only). */
+  readonly loaded = signal<AppUser | null>(null);
 
   readonly form = this.fb.nonNullable.group({
     userId: ['', [Validators.required, Validators.maxLength(200), NOT_BLANK]],
@@ -57,11 +62,14 @@ export class AppUserForm implements OnInit {
         this.roleOptions.set(roles.map((r) => ({ roleId: r.roleId, label: `${r.roleName} (${r.roleId})` })));
         if (user) this.patch(user);
       },
-      error: () => this.messages.add({ severity: 'error', summary: '錯誤', detail: '無法載入資料' }),
+      error: (err: unknown) => {
+        if (!isServerError(err)) this.messages.add({ severity: 'error', summary: '錯誤', detail: errorMessage(err, '無法載入資料') });
+      },
     });
   }
 
   private patch(user: AppUser): void {
+    this.loaded.set(user);
     this.form.patchValue({
       userId: user.userId,
       userName: user.userName,
@@ -100,7 +108,9 @@ export class AppUserForm implements OnInit {
       },
       error: (err: HttpErrorResponse) => {
         this.saving.set(false);
-        this.messages.add({ severity: 'error', summary: '錯誤', detail: err.error?.message ?? '儲存失敗' });
+        if (!isServerError(err)) {
+          this.messages.add({ severity: 'error', summary: '錯誤', detail: err.error?.message ?? '儲存失敗' });
+        }
       },
     });
   }

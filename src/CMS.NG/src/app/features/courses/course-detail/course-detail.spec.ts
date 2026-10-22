@@ -2,7 +2,10 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { HttpErrorResponse } from '@angular/common/http';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { Router, provideRouter } from '@angular/router';
+import { signal } from '@angular/core';
+import { AuthService } from '../../../core/auth/auth.service';
 import { of, throwError } from 'rxjs';
+import { RowAuditService } from '../../../core/components/row-audit-badge/row-audit.service';
 import { Confirmation, ConfirmationService, MessageService } from 'primeng/api';
 import { Course } from '../course.model';
 import { CourseService } from '../course.service';
@@ -39,7 +42,10 @@ describe('CourseDetail', () => {
 
   const text = (el: HTMLElement, f: string) => el.querySelector(`[data-field="${f}"]`)?.textContent?.trim();
 
+  const isAdmin = signal(true);
+
   beforeEach(async () => {
+    isAdmin.set(true);
     service = jasmine.createSpyObj<CourseService>('CourseService', ['getById', 'delete']);
     service.getById.and.returnValue(of(course));
     service.delete.and.returnValue(of(undefined));
@@ -52,6 +58,8 @@ describe('CourseDetail', () => {
         ConfirmationService,
         MessageService,
         { provide: CourseService, useValue: service },
+        { provide: AuthService, useValue: { isAdmin } },
+        { provide: RowAuditService, useValue: jasmine.createSpyObj<RowAuditService>('RowAuditService', { getHistory: of([]) }) },
       ],
     }).compileComponents();
     confirmation = TestBed.inject(ConfirmationService);
@@ -114,6 +122,15 @@ describe('CourseDetail', () => {
     expect(el.querySelector('[data-field="courseGroup"] a')).toBeNull();
   });
 
+  // Review finding (/ship 2026-10-22): PublishStatus pages became Admin-only, so a non-admin following this link got a 403 toast.
+  it('shows the publish status as plain text, not a link, to non-admins', () => {
+    isAdmin.set(false);
+    const el = create();
+
+    expect(el.querySelector('[data-field="publishStatus"] a')).toBeNull();
+    expect(text(el, 'publishStatus')).toBe('上架中');
+  });
+
   it('shows n-n items as chips', () => {
     const el = create();
 
@@ -128,6 +145,17 @@ describe('CourseDetail', () => {
 
     expect(el.textContent).toContain('找不到此課程資料');
     expect(el.querySelector('[data-field="courseId"]')).toBeNull();
+  });
+
+  it('leaves the 5xx toast to the interceptor (no second toast) when loading fails', () => {
+    service.getById.and.returnValue(
+      throwError(() => new HttpErrorResponse({ status: 500, error: { message: '系統發生未預期的錯誤，請稍後再試' } })),
+    );
+    const add = spyOn(TestBed.inject(MessageService), 'add');
+    create();
+
+    expect(add).not.toHaveBeenCalledWith(jasmine.objectContaining({ severity: 'error' }));
+    expect(fixture.componentInstance.notFound()).toBeTrue();
   });
 
   it('deletes after confirmation and returns to the list', () => {
@@ -151,5 +179,11 @@ describe('CourseDetail', () => {
     fixture.componentInstance.confirmDelete({ ...course, hotCourseCount: 1 });
 
     expect(confirm).not.toHaveBeenCalled();
+  });
+
+  it('shows the 異動紀錄 badge for this record in the page header', () => {
+    const el = create();
+    expect(el.querySelector('.page-header .start app-row-audit-badge')).not.toBeNull();
+    expect(TestBed.inject(RowAuditService).getHistory).toHaveBeenCalledOnceWith('Course', '42');
   });
 });

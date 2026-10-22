@@ -5,8 +5,10 @@ using Dapper;
 
 namespace CMS.API.Repositories;
 
-public class PublishStatusRepository(IDbConnectionFactory db) : IPublishStatusRepository
+public class PublishStatusRepository(IDbConnectionFactory db, RowAuditWriter audit) : IPublishStatusRepository
 {
+    private const string Table = "PublishStatus";
+
     private const string SelectSql = """
         SELECT s.pkid, s.Description, s.IsDraft, s.IsPublished, s.IsDiscontinued,
                (SELECT COUNT(*) FROM Course c WHERE c.PublishStatus_pkid = s.pkid) AS CourseCount,
@@ -72,26 +74,48 @@ public class PublishStatusRepository(IDbConnectionFactory db) : IPublishStatusRe
     {
         // pkid is not IDENTITY — inserted as supplied.
         using var conn = await db.OpenAsync();
+        using var tx = conn.BeginTransaction();
+
         await conn.ExecuteAsync("""
             INSERT INTO PublishStatus (pkid, Description, IsDraft, IsPublished, IsDiscontinued)
             VALUES (@Pkid, @Description, @IsDraft, @IsPublished, @IsDiscontinued)
-            """, request);
+            """, request, tx);
+
+        await audit.LogInsertAsync(Table, (await RowAuditWriter.LoadRowAsync(tx, Table, request.Pkid))!, tx);
+        tx.Commit();
     }
 
     public async Task<bool> UpdateAsync(PublishStatusRequest request)
     {
         using var conn = await db.OpenAsync();
-        var rows = await conn.ExecuteAsync("""
+        using var tx = conn.BeginTransaction();
+
+        var before = await RowAuditWriter.LoadRowAsync(tx, Table, request.Pkid);
+        if (before is null) return false;
+
+        await conn.ExecuteAsync("""
             UPDATE PublishStatus
             SET Description = @Description, IsDraft = @IsDraft, IsPublished = @IsPublished, IsDiscontinued = @IsDiscontinued
             WHERE pkid = @Pkid
-            """, request);
-        return rows > 0;
+            """, request, tx);
+
+        await audit.LogUpdateAsync(Table, before, (await RowAuditWriter.LoadRowAsync(tx, Table, request.Pkid))!, tx);
+        tx.Commit();
+        return true;
     }
 
     public async Task<bool> DeleteAsync(byte pkid)
     {
         using var conn = await db.OpenAsync();
-        return await conn.ExecuteAsync("DELETE FROM PublishStatus WHERE pkid = @pkid", new { pkid }) > 0;
+        using var tx = conn.BeginTransaction();
+
+        var row = await RowAuditWriter.LoadRowAsync(tx, Table, pkid);
+        if (row is null) return false;
+
+        await conn.ExecuteAsync("DELETE FROM PublishStatus WHERE pkid = @pkid", new { pkid }, tx);
+
+        await audit.LogDeleteAsync(Table, row, tx);
+        tx.Commit();
+        return true;
     }
 }

@@ -9,8 +9,10 @@ import { InputNumberModule } from 'primeng/inputnumber';
 import { InputTextModule } from 'primeng/inputtext';
 import { MultiSelectModule } from 'primeng/multiselect';
 import { LookupService } from '../../../core/services/lookup.service';
+import { RowAuditBadge } from '../../../core/components/row-audit-badge/row-audit-badge';
 import { AppRole, AppRoleRequest } from '../app-role.model';
 import { AppRoleService } from '../app-role.service';
+import { errorMessage, isServerError } from '../../../core/utils/server-error';
 
 interface UserOption {
   userId: string;
@@ -19,7 +21,7 @@ interface UserOption {
 
 @Component({
   selector: 'app-app-role-form',
-  imports: [ReactiveFormsModule, ButtonModule, InputNumberModule, InputTextModule, MultiSelectModule],
+  imports: [ReactiveFormsModule, ButtonModule, InputNumberModule, InputTextModule, MultiSelectModule, RowAuditBadge],
   templateUrl: './app-role-form.html',
 })
 export class AppRoleForm implements OnInit {
@@ -55,7 +57,9 @@ export class AppRoleForm implements OnInit {
         this.userOptions.set(users.map((u) => ({ userId: u.userId, label: `${u.userName} (${u.userId})` })));
         if (role) this.patch(role);
       },
-      error: () => this.messages.add({ severity: 'error', summary: '錯誤', detail: '無法載入資料' }),
+      error: (err: unknown) => {
+        if (!isServerError(err)) this.messages.add({ severity: 'error', summary: '錯誤', detail: errorMessage(err, '無法載入資料') });
+      },
     });
   }
 
@@ -100,8 +104,8 @@ export class AppRoleForm implements OnInit {
       },
       error: (err: HttpErrorResponse) => {
         this.saving.set(false);
-        const detail = err.status === 409 ? (err.error?.message ?? '角色代碼已存在') : '儲存失敗';
-        this.messages.add({ severity: 'error', summary: '錯誤', detail });
+        const detail = errorMessage(err, err.status === 409 ? '角色代碼已存在' : '儲存失敗');
+        if (!isServerError(err)) this.messages.add({ severity: 'error', summary: '錯誤', detail });
       },
     });
   }

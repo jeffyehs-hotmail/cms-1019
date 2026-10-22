@@ -8,6 +8,8 @@ public interface IAppRoleRepository
     Task<IEnumerable<AppRole>> QueryAsync(AppRoleQuery query);
     Task<AppRole?> GetByIdAsync(int pkid);
     Task<bool> RoleIdExistsAsync(string roleId);
+    /// <summary>The given UserIds that have no AppUser row (empty when all exist).</summary>
+    Task<IReadOnlyList<string>> CheckUsersAsync(IEnumerable<string> userIds);
     Task<int> CreateAsync(AppRoleRequest request);
     Task<bool> UpdateAsync(AppRoleRequest request);
     Task<bool> DeleteAsync(int pkid);

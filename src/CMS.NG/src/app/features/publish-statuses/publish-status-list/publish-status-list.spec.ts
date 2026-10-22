@@ -175,4 +175,21 @@ describe('PublishStatusList', () => {
     expect(add).toHaveBeenCalledWith(jasmine.objectContaining({ severity: 'error' }));
     expect(component.loading()).toBeFalse();
   });
+
+  it('toasts the API message when loading is refused (403 for a non-admin)', async () => {
+    service.query.and.returnValue(throwError(() => new HttpErrorResponse({ status: 403, error: { message: '權限不足，無法執行此操作' } })));
+    const add = spyOn(messages, 'add');
+    await create();
+    expect(add).toHaveBeenCalledWith(jasmine.objectContaining({ severity: 'error', detail: '權限不足，無法執行此操作' }));
+  });
+
+  it('leaves the 5xx toast to the interceptor (no second toast) when loading fails', async () => {
+    service.query.and.returnValue(
+      throwError(() => new HttpErrorResponse({ status: 500, error: { message: '系統發生未預期的錯誤，請稍後再試' } })),
+    );
+    const add = spyOn(messages, 'add');
+    await create();
+    expect(add).not.toHaveBeenCalledWith(jasmine.objectContaining({ severity: 'error' }));
+    expect(component.loading()).toBeFalse();
+  });
 });

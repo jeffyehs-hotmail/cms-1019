@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using CMS.API.Models;
@@ -253,17 +254,65 @@ public class AppUsersControllerTests : IDisposable
         Assert.Equal(["Admin", "User"], (await _client.GetFromJsonAsync<AppUser>($"{Url}/1"))!.Roles.Select(r => r.RoleId));
     }
 
-    // ---------- Reset password ----------
+    // ---------- Reset password (Admin only) ----------
+
+
+    private HttpClient ClientAs(params string[] roles)
+    {
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", CmsApiFactory.AccessToken("carol", "Carol", roles));
+        return client;
+    }
 
     [Fact]
-    public async Task ResetPassword_Returns204_AndRestoresDefaultHash()
+    public async Task ResetPassword_AsAdmin_StoresSha256OfSysConfigDefault_AndClearsTime()
     {
-        var res = await _client.PostAsync($"{Url}/1/reset-password", null);
+        _factory.AppUsers.AppConfigValue = """{"defaultPassword":"Fresh#Default9"}""";
+        _factory.AppUsers.Find(1)!.User.PasswordUpdatedTime = new DateTime(2026, 1, 1, 9, 0, 0);
+        var res = await ClientAs("Admin").PostAsync($"{Url}/1/reset-password", null);
 
         Assert.Equal(HttpStatusCode.NoContent, res.StatusCode);
         var stored = _factory.AppUsers.Find(1)!;
-        Assert.Equal(PasswordHasher.Hash(FakeAppUserRepository.DefaultPassword), stored.PasswordHash);
+        Assert.Equal(PasswordHasher.Hash("Fresh#Default9"), stored.PasswordHash);
+        // NULL marks "back on the default password" (spec/auth/AppUser.md; the UI shows 尚未變更（預設密碼）).
         Assert.Null(stored.User.PasswordUpdatedTime);
+    }
+
+    [Fact]
+    public async Task ResetPassword_ReturnsNoPasswordOrHash()
+    {
+        var res = await ClientAs("Admin").PostAsync($"{Url}/1/reset-password", null);
+
+        Assert.Equal(HttpStatusCode.NoContent, res.StatusCode);
+        Assert.Empty(await res.Content.ReadAsByteArrayAsync());
+    }
+
+    [Theory]
+    [InlineData]
+    [InlineData("User")]
+    [InlineData("admin")]
+    public async Task ResetPassword_NonAdmin_Returns403WithMessage_AndKeepsHash(params string[] roles)
+    {
+        var res = await ClientAs(roles).PostAsync($"{Url}/1/reset-password", null);
+
+        Assert.Equal(HttpStatusCode.Forbidden, res.StatusCode);
+        Assert.Equal(JwtAuthentication.Forbidden, await MessageOf(res));
+        var stored = _factory.AppUsers.Find(1)!;
+        Assert.Equal("seed-hash", stored.PasswordHash);
+        Assert.Null(stored.User.PasswordUpdatedTime);
+    }
+
+    [Fact]
+    public async Task ResetPassword_Anonymous_Returns401()
+    {
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = null;
+
+        var res = await client.PostAsync($"{Url}/1/reset-password", null);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, res.StatusCode);
+        Assert.Equal("seed-hash", _factory.AppUsers.Find(1)!.PasswordHash);
     }
 
     [Fact]
@@ -281,6 +330,7 @@ public class AppUsersControllerTests : IDisposable
 
         Assert.Equal(HttpStatusCode.InternalServerError, res.StatusCode);
         Assert.Equal("seed-hash", _factory.AppUsers.Find(1)!.PasswordHash);
+        Assert.Null(_factory.AppUsers.Find(1)!.User.PasswordUpdatedTime);
     }
 
     // ---------- Delete ----------
@@ -300,6 +350,108 @@ public class AppUsersControllerTests : IDisposable
     {
         var res = await _client.DeleteAsync($"{Url}/999");
         Assert.Equal(HttpStatusCode.NotFound, res.StatusCode);
+    }
+
+    [Fact]
+    public async Task Delete_WithAgentTokenUsage_Returns409()
+    {
+        _factory.AppUsers.SetAgentTokenUsageCount("alice", 3);
+
+        var res = await _client.DeleteAsync($"{Url}/1");
+
+        Assert.Equal(HttpStatusCode.Conflict, res.StatusCode);
+        Assert.Contains("3 筆 Token 用量", await MessageOf(res));
+        Assert.NotNull(_factory.AppUsers.Find(1));
+    }
+
+    // ---------- Agent token ----------
+
+    [Fact]
+    public async Task RegenerateAgentToken_ReturnsTokenOnce_AndStoresOnlyItsHash()
+    {
+        var res = await _client.PostAsync($"{Url}/1/regenerate-agent-token", null);
+        var body = await res.Content.ReadFromJsonAsync<AgentTokenResponse>();
+
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+        Assert.Matches("^cms_at_[A-Za-z0-9_-]{43}$", body!.Token);
+        Assert.Equal(AgentTokenHasher.Hash(body.Token), _factory.AppUsers.Find(1)!.AgentTokenHash);
+
+        var user = await _client.GetStringAsync($"{Url}/1");
+        Assert.DoesNotContain(body.Token, user);
+        Assert.DoesNotContain(AgentTokenHasher.Hash(body.Token), user);
+        Assert.Contains("\"hasAgentToken\":true", user);
+    }
+
+    [Fact]
+    public async Task RegenerateAgentToken_ReplacesTheOldToken()
+    {
+        var first = (await (await _client.PostAsync($"{Url}/1/regenerate-agent-token", null))
+            .Content.ReadFromJsonAsync<AgentTokenResponse>())!.Token;
+        var second = (await (await _client.PostAsync($"{Url}/1/regenerate-agent-token", null))
+            .Content.ReadFromJsonAsync<AgentTokenResponse>())!.Token;
+
+        Assert.NotEqual(first, second);
+        Assert.Null(_factory.AppUsers.FindActiveUserIdByAgentTokenHash(AgentTokenHasher.Hash(first)));
+        Assert.Equal("alice", _factory.AppUsers.FindActiveUserIdByAgentTokenHash(AgentTokenHasher.Hash(second)));
+    }
+
+    [Fact]
+    public async Task RevokeAgentToken_ClearsTheHash()
+    {
+        await _client.PostAsync($"{Url}/1/regenerate-agent-token", null);
+
+        var res = await _client.PostAsync($"{Url}/1/revoke-agent-token", null);
+
+        Assert.Equal(HttpStatusCode.NoContent, res.StatusCode);
+        Assert.Null(_factory.AppUsers.Find(1)!.AgentTokenHash);
+        Assert.False((await _client.GetFromJsonAsync<AppUser>($"{Url}/1"))!.HasAgentToken);
+    }
+
+    [Theory]
+    [InlineData("regenerate-agent-token")]
+    [InlineData("revoke-agent-token")]
+    public async Task AgentTokenActions_NotFound_Return404(string action)
+    {
+        var res = await _client.PostAsync($"{Url}/999/{action}", null);
+        Assert.Equal(HttpStatusCode.NotFound, res.StatusCode);
+    }
+
+    // ---------- Admin only ----------
+    // Regression: ISSUE-002 — any signed-in user could PUT itself into the Admin role (bypassing the Admin-only
+    // reset-password) and issue or revoke anyone's agent token.
+    // Found by /qa on 2026-10-21
+    // Report: .gstack/qa-reports/qa-report-cms-api-2026-10-21.md
+
+    [Theory]
+    [InlineData("GET", "")]
+    [InlineData("POST", "/query")]
+    [InlineData("GET", "/1")]
+    [InlineData("POST", "")]
+    [InlineData("PUT", "")]
+    [InlineData("DELETE", "/1")]
+    [InlineData("POST", "/1/regenerate-agent-token")]
+    [InlineData("POST", "/1/revoke-agent-token")]
+    public async Task EveryAction_NonAdmin_Returns403WithMessage(string method, string path)
+    {
+        var res = await ClientAs("User").SendAsync(
+            new HttpRequestMessage(new HttpMethod(method), Url + path) { Content = JsonContent.Create(new { }) });
+
+        Assert.Equal(HttpStatusCode.Forbidden, res.StatusCode);
+        Assert.Equal(JwtAuthentication.Forbidden, await MessageOf(res));
+    }
+
+    [Fact]
+    public async Task Update_NonAdminGrantingItselfAdmin_Returns403_AndKeepsRoles()
+    {
+        var before = (await _client.GetFromJsonAsync<AppUser>($"{Url}/3"))!;
+        var req = NewRequest(pkid: 3, userId: before.UserId);
+        req.RoleIds = ["Admin", "User"];
+
+        var res = await ClientAs("User").PutAsJsonAsync(Url, req);
+
+        Assert.Equal(HttpStatusCode.Forbidden, res.StatusCode);
+        var after = (await _client.GetFromJsonAsync<AppUser>($"{Url}/3"))!;
+        Assert.Equal(before.Roles.Select(r => r.RoleId), after.Roles.Select(r => r.RoleId));
     }
 
     // ---------- Lookup ----------

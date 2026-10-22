@@ -1,5 +1,10 @@
 <div class="page-header">
-  <h1 class="title">檢視課程</h1>
+  <div class="start">
+    <h1 class="title">檢視課程</h1>
+    @if (course()) {
+      <app-row-audit-badge tableName="Course" [pkid]="id()" />
+    }
+  </div>
   <div class="actions">
     <p-button label="返回" icon="pi pi-arrow-left" severity="secondary" (onClick)="back()" />
     @if (course(); as c) {
@@ -73,7 +78,12 @@
       <div class="field">
         <label>上架狀態</label>
         <div class="view-value" data-field="publishStatus">
-          <a [routerLink]="['/publish-statuses', c.publishStatusPkid]">{{ c.publishStatusDescription }}</a>
+          <!-- PublishStatus pages are Admin-only (API 403), so others see plain text. -->
+          @if (auth.isAdmin()) {
+            <a [routerLink]="['/publish-statuses', c.publishStatusPkid]">{{ c.publishStatusDescription }}</a>
+          } @else {
+            {{ c.publishStatusDescription }}
+          }
         </div>
       </div>
     </div>
