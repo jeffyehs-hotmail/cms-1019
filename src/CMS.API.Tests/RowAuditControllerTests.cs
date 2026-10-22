@@ -117,4 +117,24 @@ public class RowAuditControllerTests : IDisposable
 
         Assert.Equal(HttpStatusCode.OK, res.StatusCode);
     }
+
+    // Regression (/ship 2026-10-22 adversarial review): the DB collation is width-insensitive, so full-width letters
+    // matched AppRole in SQL while the C# Admin check missed them, and a User read who was granted Admin.
+    [Theory]
+    [InlineData("NoSuchTable")]
+    [InlineData("ＡｐｐＲｏｌｅ")]   // ＡｐｐＲｏｌｅ, full-width
+    [InlineData("ａｐｐｕｓｅｒ")]   // ａｐｐｕｓｅｒ
+    [InlineData("Ｃｏｕｒｓｅ")]   // ＣＯＵＲＳＥ, full-width: only real table names reach SQL
+    public async Task Get_UnknownTable_ReturnsEmpty_WithoutQuerying(string table)
+    {
+        _client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", CmsApiFactory.AccessToken("carol", "Carol", ["User"]));
+        // The fake would return this row if the raw name reached it (as the width-insensitive SQL would).
+        await SeedAsync(table, "1", "Insert", "alice", new DateTime(2026, 6, 1, 9, 0, 0), "secret");
+
+        var res = await _client.GetAsync($"{Url}?tableName={Uri.EscapeDataString(table)}&pkid=1");
+
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+        Assert.Empty((await res.Content.ReadFromJsonAsync<List<RowAuditEntry>>())!);
+    }
 }

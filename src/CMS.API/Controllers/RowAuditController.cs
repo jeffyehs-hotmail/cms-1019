@@ -9,9 +9,16 @@ namespace CMS.API.Controllers;
 [Route("api/rowaudit")]
 public class RowAuditController(IRowAuditRepository repo) : ControllerBase
 {
+    /// <summary>
+    /// Tables whose repositories write RowAudit, keyed case-insensitively to their canonical name. Only a canonical name
+    /// reaches SQL: the column collation is width-insensitive, so a raw "ＡｐｐＲｏｌｅ" would match AppRole rows there.
+    /// </summary>
+    public static readonly IReadOnlyDictionary<string, string> AuditedTables =
+        new[] { "AppRole", "AppUser", "Course", "CourseGroup", "FeaturedPromoItem", "Partner", "PublishStatus" }
+            .ToDictionary(t => t, StringComparer.OrdinalIgnoreCase);
+
     /// <summary>History of these tables is Admin-only, like their APIs (it names every account and who changed roles).</summary>
-    public static readonly IReadOnlySet<string> AdminOnlyTables =
-        new HashSet<string>(["AppUser", "AppRole"], StringComparer.OrdinalIgnoreCase);
+    public static readonly IReadOnlySet<string> AdminOnlyTables = new HashSet<string>(["AppUser", "AppRole"]);
 
     /// <summary>History of one record: RowAudit rows with this TableName and PrimaryKeyValues = pkid, newest first.</summary>
     [HttpGet]
@@ -21,11 +28,12 @@ public class RowAuditController(IRowAuditRepository repo) : ControllerBase
         pkid = pkid?.Trim();
         if (string.IsNullOrEmpty(tableName) || string.IsNullOrEmpty(pkid))
             return BadRequest(new { message = "請指定資料表名稱與主代碼" });
-        // Longer values cannot match the varchar(50) / nvarchar(100) columns.
-        if (AdminOnlyTables.Contains(tableName) && !User.IsInRole(AppUsersController.AdminRole))
+        if (!AuditedTables.TryGetValue(tableName, out var table)) return Ok(Array.Empty<RowAuditEntry>());
+        if (AdminOnlyTables.Contains(table) && !User.IsInRole(AppUsersController.AdminRole))
             return StatusCode(StatusCodes.Status403Forbidden, new { message = JwtAuthentication.Forbidden });
-        if (tableName.Length > 50 || pkid.Length > 100) return Ok(Array.Empty<RowAuditEntry>());
+        // Longer values cannot match the nvarchar(100) column.
+        if (pkid.Length > 100) return Ok(Array.Empty<RowAuditEntry>());
 
-        return Ok(await repo.GetByRecordAsync(tableName, pkid));
+        return Ok(await repo.GetByRecordAsync(table, pkid));
     }
 }
