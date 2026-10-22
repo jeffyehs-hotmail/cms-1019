@@ -24,6 +24,9 @@ public class RowAuditWriter(IRowAuditRepository repository, IHttpContextAccessor
     /// <summary>ActionDesc is varchar(1000): 1000 bytes in the database's code page (Chinese_Taiwan → Big5, 2 bytes per Chinese character).</summary>
     public const int MaxActionDescBytes = 1000;
 
+    /// <summary>UserName is nvarchar(100) while AppUser.UserName allows 200; a longer name would fail the audited write.</summary>
+    public const int MaxUserNameLength = 100;
+
     private static readonly TimeSpan TaipeiOffset = TimeSpan.FromHours(8);
     private static readonly Encoding Big5 = CodePagesEncodingProvider.Instance.GetEncoding(950)!;
     private static readonly ConcurrentDictionary<Type, PropertyInfo[]> PropertiesByType = new();
@@ -70,7 +73,11 @@ public class RowAuditWriter(IRowAuditRepository repository, IHttpContextAccessor
     {
         var user = httpContextAccessor.HttpContext?.User;
         var name = user?.Identity?.IsAuthenticated == true ? user.FindFirst(JwtRegisteredClaimNames.Name)?.Value : null;
-        return string.IsNullOrWhiteSpace(name) ? SystemUserName : name;
+        if (string.IsNullOrWhiteSpace(name)) return SystemUserName;
+        if (name.Length <= MaxUserNameLength) return name;
+        // Don't leave half a surrogate pair at the cut.
+        var length = char.IsHighSurrogate(name[MaxUserNameLength - 1]) ? MaxUserNameLength - 1 : MaxUserNameLength;
+        return name[..length];
     }
 
     /// <summary>The <c>Pkid</c> property / column (any case) as an invariant string.</summary>

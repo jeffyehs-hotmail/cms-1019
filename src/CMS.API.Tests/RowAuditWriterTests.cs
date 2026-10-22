@@ -169,6 +169,40 @@ public class RowAuditWriterTests
         Assert.Equal("system", Single().UserName);
     }
 
+    // Regression: ISSUE-003 — a name over 100 chars (AppUser.UserName allows 200) failed every audited write
+    // Found by /qa on 2026-10-22
+    // Report: .gstack/qa-reports/run-20261022T013931Z/qa-report-cms-api-2026-10-22.md
+    [Fact]
+    public async Task UserName_is_truncated_to_the_100_character_column()
+    {
+        SignIn(new string('名', 150));
+
+        await Writer().LogInsertAsync("CourseGroup", new CourseGroup { Pkid = 1, Description = "x" });
+
+        Assert.Equal(new string('名', 100), Single().UserName);
+    }
+
+    [Fact]
+    public async Task UserName_truncation_never_splits_a_surrogate_pair()
+    {
+        // nvarchar(100) holds 100 UTF-16 code units: "𠀀" takes two, so it can't start at unit 100.
+        SignIn(new string('a', 99) + "𠀀b");
+
+        await Writer().LogInsertAsync("CourseGroup", new CourseGroup { Pkid = 1, Description = "x" });
+
+        Assert.Equal(new string('a', 99), Single().UserName);
+    }
+
+    [Fact]
+    public async Task UserName_of_exactly_100_characters_is_kept()
+    {
+        SignIn(new string('a', 100));
+
+        await Writer().LogInsertAsync("CourseGroup", new CourseGroup { Pkid = 1, Description = "x" });
+
+        Assert.Equal(100, Single().UserName.Length);
+    }
+
     [Fact]
     public async Task ActionDesc_is_truncated_to_1000_characters_of_ascii()
     {
