@@ -401,9 +401,9 @@ Follow-ups found by /ship's pre-landing review of `feature-agent-token-usage` (2
 
 ### Small correctness items
 
-**What:** Fix the stale `AuthService.updateProfile` comment (RowAudit now records the login UserId, not the `name` claim; `auth.service.ts:53`); cancel or ignore a superseded `RowAuditBadge.open()` reply when `tableName`/`pkid` change; treat a token without `exp` as expired in `AuthService.isLoggedIn`; check AgentTokenUsage rows inside the AppUser delete transaction (or revoke the agent token first) so a concurrent ingest gives the 409, not an FK 500.
+**What:** Cancel or ignore a superseded `RowAuditBadge.open()` reply when `tableName`/`pkid` change; treat a token without `exp` as expired in `AuthService.isLoggedIn`; check AgentTokenUsage rows inside the AppUser delete transaction (or revoke the agent token first) so a concurrent ingest gives the 409, not an FK 500.
 
-**Why:** Each is low impact (misleading comment, wrong history after fast navigation, UI-only session, rare 500), but cheap to fix.
+**Why:** Each is low impact (wrong history after fast navigation, UI-only session, rare 500), but cheap to fix.
 
 **Context:** `core/auth/auth.service.ts`, `core/components/row-audit-badge/`, `AppUsersController.Delete`. Adversarial review, /ship run 4.
 
