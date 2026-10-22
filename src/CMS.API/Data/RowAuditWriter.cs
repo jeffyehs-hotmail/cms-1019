@@ -14,7 +14,7 @@ namespace CMS.API.Data;
 /// <summary>
 /// Writes one RowAudit row per Insert / Update / Delete of any entity, reading the entity by reflection
 /// (or, for an <see cref="AuditRow"/>, by its columns): PrimaryKeyValues = its <c>Pkid</c> property / column,
-/// UserName = the signed-in user's JWT <c>name</c> claim (or "system").
+/// UserName = the signed-in user's UserId, the JWT <c>sub</c> claim (or "system").
 /// Repositories pass their transaction so the audit row commits or rolls back with the change.
 /// </summary>
 public class RowAuditWriter(IRowAuditRepository repository, IHttpContextAccessor httpContextAccessor, TimeProvider time)
@@ -24,7 +24,7 @@ public class RowAuditWriter(IRowAuditRepository repository, IHttpContextAccessor
     /// <summary>ActionDesc is varchar(1000): 1000 bytes in the database's code page (Chinese_Taiwan → Big5, 2 bytes per Chinese character).</summary>
     public const int MaxActionDescBytes = 1000;
 
-    /// <summary>UserName is nvarchar(100) while AppUser.UserName allows 200; a longer name would fail the audited write.</summary>
+    /// <summary>UserName is nvarchar(100) while AppUser.UserId allows 200; a longer id would fail the audited write.</summary>
     public const int MaxUserNameLength = 100;
 
     private static readonly TimeSpan TaipeiOffset = TimeSpan.FromHours(8);
@@ -91,7 +91,8 @@ public class RowAuditWriter(IRowAuditRepository repository, IHttpContextAccessor
     private string CurrentUserName()
     {
         var user = httpContextAccessor.HttpContext?.User;
-        var name = user?.Identity?.IsAuthenticated == true ? user.FindFirst(JwtRegisteredClaimNames.Name)?.Value : null;
+        // The login UserId (`sub`), never the display name: every user can rename themselves on My Profile.
+        var name = user?.Identity?.IsAuthenticated == true ? user.FindFirst(JwtRegisteredClaimNames.Sub)?.Value : null;
         if (string.IsNullOrWhiteSpace(name)) return SystemUserName;
         if (name.Length <= MaxUserNameLength) return name;
         // Don't leave half a surrogate pair at the cut.

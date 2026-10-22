@@ -48,7 +48,7 @@ public class RowAuditRepositoryTests
         {
             HttpContext = new DefaultHttpContext
             {
-                User = new ClaimsPrincipal(new ClaimsIdentity([new Claim("name", new string('名', 200))], "Bearer")),
+                User = new ClaimsPrincipal(new ClaimsIdentity([new Claim("sub", new string('名', 200))], "Bearer")),
             },
         };
 

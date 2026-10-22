@@ -51,7 +51,7 @@ public static class TestDatabase
         {
             HttpContext = new DefaultHttpContext
             {
-                User = new ClaimsPrincipal(new ClaimsIdentity([new Claim("name", userName)], "Bearer")),
+                User = new ClaimsPrincipal(new ClaimsIdentity([new Claim("sub", userName)], "Bearer")),
             },
         };
         return new RowAuditWriter(repository ?? new RowAuditRepository(Connections), http, TimeProvider.System);

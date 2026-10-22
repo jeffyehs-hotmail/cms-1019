@@ -15,10 +15,11 @@ public class RowAuditWriterTests
 
     private RowAuditWriter Writer() => new(_audits, _http, new FixedTimeProvider(Now));
 
-    private void SignIn(string? userName, string authenticationType = "Bearer")
+    /// <summary>Signs in <paramref name="userId"/> (`sub`) with a display name that must never be recorded.</summary>
+    private void SignIn(string? userId, string authenticationType = "Bearer")
     {
-        var claims = new List<Claim> { new("sub", "carol") };
-        if (userName is not null) claims.Add(new Claim("name", userName));
+        var claims = new List<Claim> { new("name", "Display Name") };
+        if (userId is not null) claims.Add(new Claim("sub", userId));
         _http.HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(new ClaimsIdentity(claims, authenticationType)) };
     }
 
@@ -181,16 +182,30 @@ public class RowAuditWriterTests
     }
 
     [Fact]
-    public async Task UserName_is_system_when_the_token_has_no_name_claim()
+    public async Task UserName_is_system_when_the_token_has_no_sub_claim()
     {
-        SignIn(userName: null);
+        SignIn(userId: null);
 
         await Writer().LogInsertAsync("CourseGroup", new CourseGroup { Pkid = 1, Description = "x" });
 
         Assert.Equal("system", Single().UserName);
     }
 
-    // Regression: ISSUE-003 — a name over 100 chars (AppUser.UserName allows 200) failed every audited write
+    // The display name is user-editable (My Profile), so recording it would let anyone pose as "system" or another admin.
+    [Fact]
+    public async Task UserName_is_the_login_UserId_not_the_editable_display_name()
+    {
+        _http.HttpContext = new DefaultHttpContext
+        {
+            User = new ClaimsPrincipal(new ClaimsIdentity([new Claim("sub", "carol"), new Claim("name", "system")], "Bearer")),
+        };
+
+        await Writer().LogInsertAsync("CourseGroup", new CourseGroup { Pkid = 1, Description = "x" });
+
+        Assert.Equal("carol", Single().UserName);
+    }
+
+    // Regression: ISSUE-003 — a value over 100 chars (AppUser.UserId/UserName allow 200) failed every audited write
     // Found by /qa on 2026-10-22
     // Report: .gstack/qa-reports/run-20261022T013931Z/qa-report-cms-api-2026-10-22.md
     [Fact]
@@ -297,7 +312,7 @@ public class RowAuditWriterTests
         var accessor = scope.ServiceProvider.GetRequiredService<IHttpContextAccessor>();
         accessor.HttpContext = new DefaultHttpContext
         {
-            User = new ClaimsPrincipal(new ClaimsIdentity([new Claim("name", "Alice")], "Bearer")),
+            User = new ClaimsPrincipal(new ClaimsIdentity([new Claim("sub", "Alice")], "Bearer")),
         };
 
         await scope.ServiceProvider.GetRequiredService<RowAuditWriter>()
