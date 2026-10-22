@@ -189,6 +189,31 @@ describe('AgentTokenUsageReport', () => {
     expect(fixture.componentInstance.loading()).toBeFalse();
   });
 
+  // Added by /ship test coverage audit.
+  // Value: protects=a non-5xx filter-options failure toasts 無法載入篩選選項 and still loads the report rows; fails_when=loadOptions error toast is removed (silent failure); why_new=no spec fails the options call; seam=none; no_claim=exact 403 message
+  it('toasts when the filter options fail to load, and still shows the report', () => {
+    service.getFilterOptions.and.returnValue(throwError(() => new HttpErrorResponse({ status: 403 })));
+    const add = spyOn(messages, 'add');
+    create();
+
+    expect(add).toHaveBeenCalledOnceWith(jasmine.objectContaining({ severity: 'error', detail: '無法載入篩選選項' }));
+    expect(fixture.componentInstance.rows().length).toBe(2);
+    expect(fixture.componentInstance.projects()).toEqual([]);
+  });
+
+  // Added by /ship test coverage audit.
+  // Value: protects=a 5xx on filter options gets no component toast (interceptor owns it); fails_when=the isServerError guard in loadOptions is dropped; why_new=only the query callback has a 500 case; seam=none; no_claim=interceptor toast text
+  it('leaves the 5xx toast to the interceptor (no second toast) when the filter options fail', () => {
+    lookups.getAppUsers.and.returnValue(
+      throwError(() => new HttpErrorResponse({ status: 500, error: { message: '系統發生未預期的錯誤，請稍後再試' } })),
+    );
+    const add = spyOn(messages, 'add');
+    create();
+
+    expect(add).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.users()).toEqual([]);
+  });
+
   it('shows the empty message without a totals row', () => {
     service.query.and.returnValue(of([]));
     const el = create();

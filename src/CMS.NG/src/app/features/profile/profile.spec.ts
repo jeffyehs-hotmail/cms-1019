@@ -275,6 +275,24 @@ describe('Profile', () => {
       expect((el.querySelector('#newPassword') as HTMLInputElement).value).toBe('N3wPassword');
     });
 
+    // Added by /ship test coverage audit.
+    // Value: protects=a 5xx on change-password gets no second toast, re-enables submit and keeps input; fails_when=isServerError guard or changingPassword reset is dropped; why_new=only a 400 case exists for this callback; seam=none; no_claim=interceptor toast text
+    it('leaves the 5xx toast to the interceptor (no second toast) when changing the password fails', () => {
+      const toast = spyOn(messages, 'add');
+
+      fill('P@ssw0rd!', 'N3wPassword');
+      submit();
+      http
+        .expectOne(changePasswordUrl)
+        .flush({ message: '系統發生未預期的錯誤，請稍後再試' }, { status: 500, statusText: 'Internal Server Error' });
+      fixture.detectChanges();
+
+      expect(toast).not.toHaveBeenCalled();
+      expect(fixture.componentInstance.changingPassword()).toBeFalse();
+      expect((el.querySelector('#newPassword') as HTMLInputElement).value).toBe('N3wPassword');
+      expect(sessionStorage.getItem(AUTH_PROFILE_KEY)).not.toBeNull();
+    });
+
     it('does not submit the UserName form', () => {
       fill('P@ssw0rd!', 'N3wPassword');
       submit();

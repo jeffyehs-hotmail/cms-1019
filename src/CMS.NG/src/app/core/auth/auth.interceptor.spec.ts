@@ -95,6 +95,20 @@ describe('authInterceptor', () => {
     expect(add).not.toHaveBeenCalled();
   });
 
+  // Added by /ship test coverage audit.
+  // Value: protects=a 401 while already on /login redirects to /login without a returnUrl; fails_when=the startsWith('/login') check is dropped and returnUrl nests /login; why_new=existing 401 test only covers an app url; seam=none; no_claim=login page rendering
+  it('on 401 while already on /login redirects without a returnUrl (no /login loop)', () => {
+    signIn();
+    spyOnProperty(router, 'url').and.returnValue('/login?returnUrl=%2Fcourses');
+    const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+
+    http.get(api).subscribe({ error: () => {} });
+    backend.expectOne(api).flush({ message: '請先登入' }, { status: 401, statusText: 'Unauthorized' });
+
+    expect(navigate).toHaveBeenCalledOnceWith(['/login'], { queryParams: {} });
+    expect(sessionStorage.length).toBe(0);
+  });
+
   it('leaves the session alone on a failed login (401 from the login endpoint) and on other errors', () => {
     signIn();
     const navigate = spyOn(router, 'navigate');
