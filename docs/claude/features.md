@@ -5,7 +5,7 @@ Per-feature decisions that aren't obvious from the code. Read the section for a 
 ## AppRole — 系統管理 Admin › 角色 (`database/auth.sql`)
 - **Admin role only**: class-level `[Authorize(Roles = "Admin")]` (403 `{ message }`), since role membership decides who is Admin. Lookups (`api/lookups/app-roles`) stay open to any signed-in user.
 - Table PK `RoleId` (nvarchar), immutable on update (referenced by `AppUserRole`); `pkid` used for routes/PUT. Duplicate → 409.
-- n-n users via `AppUserRole` (string keys): `UserIds: List<string>`, `UserCount` in list, `Users` on GET by id. Delete removes `AppUserRole` rows first.
+- n-n users via `AppUserRole` (string keys): `UserIds: List<string>`, `UserCount` in list, `Users` on GET by id. Delete removes `AppUserRole` rows first. Create/update trim the ids, de-duplicate them case-insensitively (the DB collation, so the `(UserId, RoleId)` PK never sees a repeat) and reject unknown ones with 400 `使用者 … 不存在` (`CheckUsersAsync`), mirroring AppUser's role check.
 - Filters: keyword (RoleId, RoleName, Description), `permissionLevelFrom`/`To`. Sort `RoleId ASC`. `Description` optional; `PermissionLevel` defaults to 100.
 - Lookup `app-users` (ordered by UserName). Detail page's user count links to `/app-users?roleId=`.
 
