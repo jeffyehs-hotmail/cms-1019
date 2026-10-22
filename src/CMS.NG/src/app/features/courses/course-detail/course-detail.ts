@@ -11,6 +11,7 @@ import { RowAuditBadge } from '../../../core/components/row-audit-badge/row-audi
 import { Course, courseInUse } from '../course.model';
 import { CourseService } from '../course.service';
 import { isServerError } from '../../../core/utils/server-error';
+import { AuthService } from '../../../core/auth/auth.service';
 
 /** Public course page on the website, encoded in the detail page QR code. */
 export const COURSE_SITE_URL = 'https://www.uuu.com.tw/Course/Show';
@@ -38,6 +39,7 @@ export class CourseDetail implements OnInit {
   private readonly router = inject(Router);
   private readonly confirmation = inject(ConfirmationService);
   private readonly messages = inject(MessageService);
+  protected readonly auth = inject(AuthService);
 
   /** Route param `:id` (Course.pkid). */
   readonly id = input.required<string>();

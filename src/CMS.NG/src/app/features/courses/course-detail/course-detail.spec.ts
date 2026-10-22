@@ -2,6 +2,8 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { HttpErrorResponse } from '@angular/common/http';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { Router, provideRouter } from '@angular/router';
+import { signal } from '@angular/core';
+import { AuthService } from '../../../core/auth/auth.service';
 import { of, throwError } from 'rxjs';
 import { RowAuditService } from '../../../core/components/row-audit-badge/row-audit.service';
 import { Confirmation, ConfirmationService, MessageService } from 'primeng/api';
@@ -40,7 +42,10 @@ describe('CourseDetail', () => {
 
   const text = (el: HTMLElement, f: string) => el.querySelector(`[data-field="${f}"]`)?.textContent?.trim();
 
+  const isAdmin = signal(true);
+
   beforeEach(async () => {
+    isAdmin.set(true);
     service = jasmine.createSpyObj<CourseService>('CourseService', ['getById', 'delete']);
     service.getById.and.returnValue(of(course));
     service.delete.and.returnValue(of(undefined));
@@ -53,6 +58,7 @@ describe('CourseDetail', () => {
         ConfirmationService,
         MessageService,
         { provide: CourseService, useValue: service },
+        { provide: AuthService, useValue: { isAdmin } },
         { provide: RowAuditService, useValue: jasmine.createSpyObj<RowAuditService>('RowAuditService', { getHistory: of([]) }) },
       ],
     }).compileComponents();
@@ -114,6 +120,15 @@ describe('CourseDetail', () => {
     expect(el.querySelector('[data-field="partner"] a')!.getAttribute('href')).toBe('/partners/4');
     expect(el.querySelector('[data-field="publishStatus"] a')!.getAttribute('href')).toBe('/publish-statuses/2');
     expect(el.querySelector('[data-field="courseGroup"] a')).toBeNull();
+  });
+
+  // Review finding (/ship 2026-10-22): PublishStatus pages became Admin-only, so a non-admin following this link got a 403 toast.
+  it('shows the publish status as plain text, not a link, to non-admins', () => {
+    isAdmin.set(false);
+    const el = create();
+
+    expect(el.querySelector('[data-field="publishStatus"] a')).toBeNull();
+    expect(text(el, 'publishStatus')).toBe('上架中');
   });
 
   it('shows n-n items as chips', () => {

@@ -78,7 +78,12 @@
       <div class="field">
         <label>上架狀態</label>
         <div class="view-value" data-field="publishStatus">
-          <a [routerLink]="['/publish-statuses', c.publishStatusPkid]">{{ c.publishStatusDescription }}</a>
+          <!-- PublishStatus pages are Admin-only (API 403), so others see plain text. -->
+          @if (auth.isAdmin()) {
+            <a [routerLink]="['/publish-statuses', c.publishStatusPkid]">{{ c.publishStatusDescription }}</a>
+          } @else {
+            {{ c.publishStatusDescription }}
+          }
         </div>
       </div>
     </div>

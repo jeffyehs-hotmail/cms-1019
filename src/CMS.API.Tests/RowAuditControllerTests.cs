@@ -89,8 +89,8 @@ public class RowAuditControllerTests : IDisposable
         Assert.Equal(HttpStatusCode.Unauthorized, res.StatusCode);
     }
 
-    // Review finding (/ship 2026-10-22): the 系統管理 screens hid this from non-admins but the API let any signed-in
-    // user in (a User created and deleted a PublishStatus live). CLAUDE.md: an adminOnly menu item needs the API role check.
+    // Review finding (/ship 2026-10-22): non-admins could read AppUser/AppRole history (every account id, who granted
+    // which roles) although those APIs are Admin-only. CLAUDE.md: role limits are enforced by the API.
     [Theory]
     [InlineData("AppUser", "User")]
     [InlineData("approle", "User")]    // table match ignores case, like the DB
