@@ -6,11 +6,12 @@ Full-stack CMS: .NET 9 Web API (Dapper) + Angular 20 (standalone, PrimeNG 20) ov
 
 | File | When |
 |---|---|
-| `docs/claude/workspace.md` | Running/smoke-testing the apps, DB queries, specs, tool quirks |
+| `docs/claude/workspace.md` | Running/smoke-testing the apps, DB queries, specs, tool quirks, `/ship` |
 | `docs/claude/backend.md` | API code, backend tests, auth/roles, row audit, exceptions, DB schema |
 | `docs/claude/frontend.md` | UI or Angular tests: lists, forms, toolbars, custom pages, shared components, auth/menu, error toasts |
 | `docs/claude/features.md` | A feature or one FK-related to it: AppRole, AppUser, Auth/login, My Profile, PublishStatus, Partner, CourseGroup, Course, FeaturedPromoItem, AgentTokenUsage, RowAudit history |
 | `tools/token-report/README.md` | The token-usage SessionEnd hook |
+| `TODOS.md` | Deferred review findings (P1–P4): check before changing auth, row audit or the hook |
 | `spec/code-gen.convention.md` | Scaffolding with `/crud` |
 
 ## Commands

@@ -47,9 +47,17 @@ Smoke tests write real rows into the live `CMS` database.
 - Login (`POST api/auth/login`): real passwords are unknown, so insert temporary `ZZ…` `AppUser` rows with `PasswordHash` = lowercase hex SHA-256 of a test password (`node -e` + `crypto`) plus `AppUserRole` rows (`Admin` for the full menu), then delete both. **Every other endpoint needs this token** (except agent-token ingest, which takes a `cms_at_` token): `T=$(curl -s -H 'Content-Type: application/json' -d '{"userId":"ZZadmin","password":"…"}' $B/auth/login | jq -r .accessToken)`, then `-H "Authorization: Bearer $T"`. Without it the API returns 401 `{ message: "請先登入" }`.
 - Browser checks against :4200 need a login too; the `ZZ` user works there, as long as :5000 runs the auth code.
 - Delete the rows afterwards and verify with sqlcmd, including side tables (`CourseRecomm`, `AppUserRole`, `CourseInCertification`, `CourseJobCategories`) and temporary values (FeaturedPromoItem `Slot = 0`).
+- Writes through the API also leave `RowAudit` rows: delete those too (`UserName` = the `ZZ…` UserId, or `TableName` + `PrimaryKeyValues` of the `ZZ…` records).
 
 ## Tooling quirks
 
 - No real Python: `python` is the Microsoft Store stub. Use the Edit/Write tools or `node`; `jq` is available.
 - Write C#/TS source with the Write tool. Long bash heredocs break (a multi-file heredoc batch fails with `unexpected EOF`), and in `node -e "…"` bash eats backticks and `${…}`. A single-quoted `node -e '…'` with `\x27` for apostrophes is safe for small scripted edits.
 - Claude's browser tools are not always available in a session; when they aren't, say the UI was verified by specs and build only.
+
+## Shipping (gstack `/ship`)
+
+- `gstack-pregate` always fails here: its secrets check flags `auth = jasmine.createSpyObj` in `login.spec.ts` (false positive), and its lane mapper can't map .NET/Angular files. The suites under Commands in CLAUDE.md are the test gate; name that exception in the PR. `gstack-ship-receipt` then refuses to write (`PREGATE_LANE_FAILED`): say so rather than claiming a receipt.
+- A gstack-managed credential pre-push hook lives in `.git/hooks/pre-push` (local, not committed).
+- Local files that must never be committed: `cms-cc.txt` (gitignored, holds credentials), `DEPLOY-IIS.md` and `deploy/` (untracked deployment notes). Stage by path, never `git add -A`.
+- `develop` is the default branch, so a `Closes #N` / `Fixes #N` in any commit message closes the issue when the PR merges, whatever the PR body says. Use `Refs #N` for partial work.
